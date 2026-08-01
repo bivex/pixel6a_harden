@@ -31,23 +31,30 @@ for DEVICE in "${DEVICES[@]}"; do
 
   echo "[INFO] Device Parameters: ${BRAND} ${MODEL} (Android ${ANDROID_VER})"
 
-  echo "[INFO] Executing Step 1/5: Enforcing Lock Screen Controls (30s timeout, stay awake disabled, instant lock)..."
+  echo "[INFO] Executing Step 1/7: Enforcing Lock Screen Controls (30s timeout, stay awake disabled, instant lock)..."
   adb -s "${DEVICE}" shell settings put system screen_off_timeout 30000 || true
   adb -s "${DEVICE}" shell settings put global stay_on_while_plugged_in 0 || true
   adb -s "${DEVICE}" shell settings put secure lockscreen.power_button_instantly_locks 1 || true
 
-  echo "[INFO] Executing Step 2/5: Hiding Sensitive Lock Screen Notifications..."
+  echo "[INFO] Executing Step 2/7: Hiding Sensitive Lock Screen Notifications..."
   adb -s "${DEVICE}" shell settings put secure lock_screen_allow_private_notifications 0 || true
 
-  echo "[INFO] Executing Step 3/5: Disabling Background Location Scanning (Wi-Fi & Bluetooth LE)..."
+  echo "[INFO] Executing Step 3/7: Enabling Password Input Masking (Anti-Shoulder Surfing)..."
+  adb -s "${DEVICE}" shell settings put system show_password 0 || true
+
+  echo "[INFO] Executing Step 4/7: Disabling Background Cellular Modem & Smart Lock Extensions..."
+  adb -s "${DEVICE}" shell settings put global mobile_data_always_on 0 || true
+  adb -s "${DEVICE}" shell settings put secure trust_agents_extend_unlock 0 || true
+
+  echo "[INFO] Executing Step 5/7: Disabling Background Location Scanning (Wi-Fi & Bluetooth LE)..."
   adb -s "${DEVICE}" shell settings put global wifi_scan_always_enabled 0 || true
   adb -s "${DEVICE}" shell settings put global ble_scan_always_enabled 0 || true
 
-  echo "[INFO] Executing Step 4/5: Restricting Package Sources & Enforcing App Verification..."
+  echo "[INFO] Executing Step 6/7: Restricting Package Sources & Enforcing App Verification..."
   adb -s "${DEVICE}" shell settings put secure install_non_market_apps 0 || true
   adb -s "${DEVICE}" shell settings put global verifier_verify_adb_installs 1 || true
 
-  echo "[INFO] Executing Step 5/5: Disabling Wireless Radios (Bluetooth & NFC)..."
+  echo "[INFO] Executing Step 7/7: Disabling Wireless Radios (Bluetooth & NFC)..."
   adb -s "${DEVICE}" shell svc bluetooth disable || true
   adb -s "${DEVICE}" shell svc nfc disable 2>/dev/null || true
 

@@ -14,6 +14,9 @@ hardened_screen_timeout_ms: 30000  # 30 seconds strict auto-lock
 stay_awake_plugged_hardened: 0      # 0 = Disabled (screen locks while charging)
 private_notifications_hidden: 0     # 0 = Hide sensitive lockscreen content
 power_button_instantly_locks: 1     # 1 = Instant lock on power button press
+show_password_characters: 0         # 0 = Hide password characters as typed (anti-shoulder surfing)
+mobile_data_always_on: 0            # 0 = Disable background cellular modem when on Wi-Fi
+trust_agents_extend_unlock: 0       # 0 = Disable Smart Lock trusted locations/devices bypass
 wifi_scan_always_enabled: 0         # 0 = Block background Wi-Fi location scanning
 ble_scan_always_enabled: 0          # 0 = Block background Bluetooth location scanning
 allow_unknown_sources: 0            # 0 = Block untrusted APK installation

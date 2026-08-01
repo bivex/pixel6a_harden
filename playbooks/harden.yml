@@ -18,19 +18,28 @@
     - name: 4. Instant power button lock
       command: "settings put secure lockscreen.power_button_instantly_locks {{ power_button_instantly_locks }}"
 
-    - name: 5. Disable background Wi-Fi & Bluetooth location scanning
+    - name: 5. Hide password characters during input (anti-shoulder surfing)
+      command: "settings put system show_password {{ show_password_characters }}"
+
+    - name: 6. Disable background cellular modem when Wi-Fi is connected
+      command: "settings put global mobile_data_always_on {{ mobile_data_always_on }}"
+
+    - name: 7. Disable Smart Lock trust agents unlock extension
+      command: "settings put secure trust_agents_extend_unlock {{ trust_agents_extend_unlock }}"
+
+    - name: 8. Disable background Wi-Fi & Bluetooth location scanning
       command: "settings put global {{ item }} 0"
       loop:
         - wifi_scan_always_enabled
         - ble_scan_always_enabled
 
-    - name: 6. Block unknown source app installs
+    - name: 9. Block unknown source app installs
       command: "settings put secure install_non_market_apps {{ allow_unknown_sources }}"
 
-    - name: 7. Enforce Play Protect verification on ADB installs
+    - name: 10. Enforce Play Protect verification on ADB installs
       command: "settings put global verifier_verify_adb_installs {{ verify_adb_installs }}"
 
-    - name: 8. Disable Bluetooth & NFC radios
+    - name: 11. Disable Bluetooth & NFC radios
       command: "svc {{ item }} disable"
       loop:
         - bluetooth
