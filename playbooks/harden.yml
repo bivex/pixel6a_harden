@@ -27,19 +27,25 @@
     - name: 7. Disable Smart Lock trust agents unlock extension
       command: "settings put secure trust_agents_extend_unlock {{ trust_agents_extend_unlock }}"
 
-    - name: 8. Disable background Wi-Fi & Bluetooth location scanning
+    - name: 8. Configure Encrypted Private DNS over TLS
+      command: "settings put global private_dns_mode {{ private_dns_mode }}"
+
+    - command: "settings put global private_dns_specifier {{ private_dns_provider }}"
+
+    - name: 9. Disable background Wi-Fi & Bluetooth location scanning
       command: "settings put global {{ item }} 0"
       loop:
         - wifi_scan_always_enabled
         - ble_scan_always_enabled
 
-    - name: 9. Block unknown source app installs
+    - name: 10. Block unknown source app installs
       command: "settings put secure install_non_market_apps {{ allow_unknown_sources }}"
 
-    - name: 10. Enforce Play Protect verification on ADB installs
+    - name: 11. Enforce Play Protect verification on ADB installs
       command: "settings put global verifier_verify_adb_installs {{ verify_adb_installs }}"
 
-    - name: 11. Disable Bluetooth & NFC radios
+    - name: 12. Disable Bluetooth & NFC radios
+
       command: "svc {{ item }} disable"
       loop:
         - bluetooth
