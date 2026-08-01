@@ -1,0 +1,20 @@
+---
+# Centralized Configuration Parameters for Pixel Setup & Security Hardening
+
+# --- Standard Setup Parameters ---
+screen_timeout_ms: 600000          # 10 minutes timeout
+stay_awake_plugged_standard: 7      # AC + USB + Wireless charging stay-awake
+animation_scale_fast: "0.5"        # 0.5x fast UI animation scale
+dark_mode_code: 2                  # 2 = Forced Dark Mode
+auto_rotate_code: 0                # 0 = Fixed portrait mode
+adaptive_brightness_code: 1        # 1 = Adaptive brightness enabled
+
+# --- Security Hardening Parameters ---
+hardened_screen_timeout_ms: 30000  # 30 seconds strict auto-lock
+stay_awake_plugged_hardened: 0      # 0 = Disabled (screen locks while charging)
+private_notifications_hidden: 0     # 0 = Hide sensitive lockscreen content
+power_button_instantly_locks: 1     # 1 = Instant lock on power button press
+wifi_scan_always_enabled: 0         # 0 = Block background Wi-Fi location scanning
+ble_scan_always_enabled: 0          # 0 = Block background Bluetooth location scanning
+allow_unknown_sources: 0            # 0 = Block untrusted APK installation
+verify_adb_installs: 1              # 1 = Enforce Play Protect verification on ADB installs

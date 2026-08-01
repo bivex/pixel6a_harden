@@ -1,0 +1,39 @@
+---
+- name: Pixel Maximum Security Hardening Playbook
+  hosts: pixel_devices
+  gather_facts: false
+  vars_files:
+    - "../config/default_settings.yml"
+
+  tasks:
+    - name: 1. Set strict screen timeout (30 seconds)
+      command: "settings put system screen_off_timeout {{ hardened_screen_timeout_ms }}"
+
+    - name: 2. Disable stay awake while plugged in
+      command: "settings put global stay_on_while_plugged_in {{ stay_awake_plugged_hardened }}"
+
+    - name: 3. Hide private notifications on lockscreen
+      command: "settings put secure lock_screen_allow_private_notifications {{ private_notifications_hidden }}"
+
+    - name: 4. Instant power button lock
+      command: "settings put secure lockscreen.power_button_instantly_locks {{ power_button_instantly_locks }}"
+
+    - name: 5. Disable background Wi-Fi & Bluetooth location scanning
+      command: "settings put global {{ item }} 0"
+      loop:
+        - wifi_scan_always_enabled
+        - ble_scan_always_enabled
+
+    - name: 6. Block unknown source app installs
+      command: "settings put secure install_non_market_apps {{ allow_unknown_sources }}"
+
+    - name: 7. Enforce Play Protect verification on ADB installs
+      command: "settings put global verifier_verify_adb_installs {{ verify_adb_installs }}"
+
+    - name: 8. Disable Bluetooth & NFC radios
+      command: "svc {{ item }} disable"
+      loop:
+        - bluetooth
+        - nfc
+      ignore_errors: true
+      changed_when: false

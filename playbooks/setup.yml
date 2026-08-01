@@ -1,0 +1,38 @@
+---
+- name: Pixel Standard Setup Playbook
+  hosts: pixel_devices
+  gather_facts: false
+  vars_files:
+    - "../config/default_settings.yml"
+
+  tasks:
+    - name: 1. Audit connected device product model
+      command: getprop ro.product.model
+      register: device_model
+      changed_when: false
+
+    - name: Display connected device model
+      debug:
+        msg: "Target Device Model: {{ device_model.stdout }}"
+
+    - name: 2. Configure System Screen Timeout
+      command: "settings put system screen_off_timeout {{ screen_timeout_ms }}"
+
+    - name: 3. Configure Stay Awake on Charger
+      command: "settings put global stay_on_while_plugged_in {{ stay_awake_plugged_standard }}"
+
+    - name: 4. Configure Dark Mode
+      command: "settings put secure ui_night_mode {{ dark_mode_code }}"
+
+    - name: 5. Configure UI Animation Speeds (0.5x)
+      command: "settings put global {{ item }} {{ animation_scale_fast }}"
+      loop:
+        - window_animation_scale
+        - transition_animation_scale
+        - animator_duration_scale
+
+    - name: 6. Configure Screen Auto-Rotation
+      command: "settings put system accelerometer_rotation {{ auto_rotate_code }}"
+
+    - name: 7. Configure Adaptive Brightness
+      command: "settings put system screen_brightness_mode {{ adaptive_brightness_code }}"

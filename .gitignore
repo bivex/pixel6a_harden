@@ -1,0 +1,14 @@
+# Ansible temporary files & logs
+*.retry
+*.log
+.ansible/
+__pycache__/
+
+# OS & Editor metadata
+.DS_Store
+.vscode/
+.idea/
+
+# Local custom overrides / secrets
+.env
+*.local
