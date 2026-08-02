@@ -15,7 +15,7 @@ A Staff-Grade, production-ready DevSecOps automation and security hardening fram
 * **Dedicated Audit Mode (`make audit`)**: Inspects device compliance against the security baseline without making any state changes.
 * **SDK_INT & Capability Awareness**: Detects target Android API levels (`ro.build.version.sdk`) and checks key support before execution.
 * **Lock Screen Prerequisite Auditing**: Checks for configured lock screen PINs/patterns and warns if lock screen policies are inactive.
-* **Deep Security Audit (`make info`)**: Advisory, read-only inspection beyond the settings baseline — lock-credential quality, per-user unknown-source installs, active Accessibility services, Device Admin / Device Owner (DPC) presence, security-patch freshness, boot-time lock, and USB default mode. Sourced from `scripts/security_audit.sh`; never alters device state.
+* **Deep Security Audit (`make info`)**: Advisory, read-only inspection beyond the settings baseline — lock-credential quality, per-user unknown-source installs, active Accessibility services, Device Admin / Device Owner (DPC) presence, security-patch freshness, boot-time lock, USB/wireless debugging mode, privileged input/notification consumers (autofill, notification listeners, default SMS, default assistant), lock-after-timeout, package verification, and storage encryption. Sourced from `scripts/security_audit.sh`; never alters device state.
 * **Local Git Hooks & Unit Testing**: Local git pre-commit hook support (`make install-hooks`), static shell check (`make lint`), and comprehensive Python unit test suite with subprocess mocks and end-to-end bash eval injection testing (`tests/test_config.py`).
 
 ---
@@ -157,6 +157,14 @@ make lockdown
 | **Security Patch** | `ro.build.version.security_patch` age in days | `[WARNING]` if older than `audit_security_patch_max_age_days` |
 | **Boot-Time Lock** | `lockscreen.disabled` + lock enrollment (Direct Boot) | `[WARNING]` if lockscreen can be bypassed at boot |
 | **USB Mode** | `adb_enabled` + `persist.sys.usb.config` | `[NOTICE]` if debugging or `adb` in the default USB function |
+| **Wireless Debugging** | `adb_wifi_enabled` | `[WARNING]` if enabled (unauthenticated network ADB surface) |
+| **Notification Listeners** | `enabled_notification_listeners` vs allowlist | `[WARNING]` for non-allowlisted listener (reads all notifications incl. 2FA) |
+| **Autofill Service** | `autofill_service` vs allowlist | `[WARNING]` for non-allowlisted (reads all typed input) |
+| **Default SMS App** | `sms_default_application` vs allowlist | `[WARNING]` for non-allowlisted (2FA interception) |
+| **Default Assistant** | `assistant` / `voice_interaction_service` vs allowlist | `[WARNING]` for non-allowlisted (sees screen/voice) |
+| **Lock-After-Timeout** | `lock_screen_lock_after_timeout` | `[WARNING]` if credential reachable >30s after screen-off |
+| **Package Verification** | `package_verifier_enable` / `upload_apk_enable` | `[WARNING]` if app verification disabled |
+| **Storage Encryption** | `ro.crypto.type` / `ro.crypto.state` | `[OK]` if encrypted (FBE) |
 
 > **Why audit-only:** automatically disabling an Accessibility service or revoking a Device Admin is destructive — it can break MDM/work profiles, accessibility-dependent users, or trusted device-management apps. Those are reported for a human to act on.
 
@@ -187,3 +195,7 @@ make lockdown
 | `audit_strict_lock_quality` | N/A | `0` | `1` treats Pattern / biometric-weak lock as insufficient |
 | `audit_accessibility_allowlist` | N/A | `"com.google.android.marvin.talkback"` | Space-separated trusted Accessibility packages |
 | `audit_device_admin_allowlist` | N/A | `""` | Space-separated expected Device Admin / Owner packages |
+| `audit_notification_listener_allowlist` | N/A | `""` | Space-separated trusted notification-listener packages (empty warns on any) |
+| `audit_autofill_allowlist` | N/A | `""` | Space-separated trusted autofill-service packages |
+| `audit_sms_default_allowlist` | N/A | `""` | Space-separated expected default-SMS-app packages (null = system default) |
+| `audit_assistant_allowlist` | N/A | `""` | Space-separated expected default-assistant packages (null = system default) |

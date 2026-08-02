@@ -41,6 +41,10 @@ class TestConfigParser(unittest.TestCase):
         self.assertEqual(cfg["audit_strict_lock_quality"], 0)
         self.assertEqual(cfg["audit_accessibility_allowlist"], "com.google.android.marvin.talkback")
         self.assertEqual(cfg["audit_device_admin_allowlist"], "")
+        self.assertEqual(cfg["audit_notification_listener_allowlist"], "")
+        self.assertEqual(cfg["audit_autofill_allowlist"], "")
+        self.assertEqual(cfg["audit_sms_default_allowlist"], "")
+        self.assertEqual(cfg["audit_assistant_allowlist"], "")
 
     def test_fallback_parser_with_tempfile(self):
         sample_yaml = """

@@ -65,6 +65,10 @@ run_security_audit() {
   local strict_lock="${CFG_AUDIT_STRICT_LOCK_QUALITY:-0}"
   local acc_allow="${CFG_AUDIT_ACCESSIBILITY_ALLOWLIST:-}"
   local admin_allow="${CFG_AUDIT_DEVICE_ADMIN_ALLOWLIST:-}"
+  local nl_allow="${CFG_AUDIT_NOTIFICATION_LISTENER_ALLOWLIST:-}"
+  local autofill_allow="${CFG_AUDIT_AUTOFILL_ALLOWLIST:-}"
+  local sms_allow="${CFG_AUDIT_SMS_DEFAULT_ALLOWLIST:-}"
+  local assistant_allow="${CFG_AUDIT_ASSISTANT_ALLOWLIST:-}"
 
   echo "--------------------------------------------------------"
   echo "Deep Security Audit (advisory) for [${device}]"
@@ -281,6 +285,122 @@ run_security_audit() {
   else
     echo "  USB Mode: [OK] ADB disabled; USB defaults to charge/file-transfer-on-prompt ('${usb_cfg}')"
   fi
+
+  # --- 7. Wireless debugging (distinct network ADB surface, API 30+) ---
+  local adb_wifi
+  adb_wifi=$(adb -s "${device}" shell settings get global adb_wifi_enabled 2>/dev/null | tr -d '\r\n' || true)
+  case "${adb_wifi}" in
+    1) echo "  Wireless Debugging: [WARNING] ENABLED (adb_wifi_enabled=1) — exposes an unauthenticated ADB port on the network" ;;
+    0) echo "  Wireless Debugging: [OK] Disabled" ;;
+    *) echo "  Wireless Debugging: [NOTICE] state unknown ('${adb_wifi}'); not supported on this Android version" ;;
+  esac
+
+  # --- 8. Notification listeners (read ALL notifications incl. 2FA) ---
+  local nl nl_entry nl_pkg nl_remaining nl_total nl_unsafe
+  nl=$(adb -s "${device}" shell settings get secure enabled_notification_listeners 2>/dev/null | tr -d '\r\n' || true)
+  nl_total=0
+  nl_unsafe=""
+  if [ -n "${nl}" ] && [ "${nl}" != "null" ]; then
+    nl_remaining="${nl}"
+    while [ -n "${nl_remaining}" ]; do
+      nl_entry="${nl_remaining%%:*}"
+      case "${nl_remaining}" in *:*) nl_remaining="${nl_remaining#*:}" ;; *) nl_remaining="" ;; esac
+      [ -z "${nl_entry}" ] && continue
+      nl_total=$((nl_total + 1))
+      nl_pkg="${nl_entry%%/*}"
+      nl_pkg="${nl_pkg%%\{*}"
+      if [ -n "${nl_pkg}" ] && ! _pkg_allowed "${nl_pkg}" "${nl_allow}"; then
+        nl_unsafe="${nl_unsafe}${nl_unsafe:+ }${nl_pkg}"
+      fi
+    done
+  fi
+  if [ "${nl_total}" -eq 0 ]; then
+    echo "  Notification Listeners: [OK] No notification listeners enabled"
+  elif [ -n "${nl_unsafe}" ]; then
+    echo "  Notification Listeners: [WARNING] Non-allowlisted listener(s) active: ${nl_unsafe}"
+  else
+    echo "  Notification Listeners: [OK] ${nl_total} listener(s) all on allowlist"
+  fi
+
+  # --- 9. Autofill service (reads everything typed) ---
+  local af af_pkg
+  af=$(adb -s "${device}" shell settings get secure autofill_service 2>/dev/null | tr -d '\r\n' || true)
+  if [ -z "${af}" ] || [ "${af}" = "null" ]; then
+    echo "  Autofill Service: [OK] No autofill service set"
+  else
+    af_pkg="${af%%/*}"
+    af_pkg="${af_pkg%%\{*}"
+    if [ -n "${af_pkg}" ] && _pkg_allowed "${af_pkg}" "${autofill_allow}"; then
+      echo "  Autofill Service: [OK] Allowlisted (${af_pkg})"
+    else
+      echo "  Autofill Service: [WARNING] Non-allowlisted autofill service: ${af_pkg}"
+    fi
+  fi
+
+  # --- 10. Default SMS app (2FA interception) ---
+  local sms_pkg
+  sms_pkg=$(adb -s "${device}" shell settings get secure sms_default_application 2>/dev/null | tr -d '\r\n' || true)
+  if [ -z "${sms_pkg}" ] || [ "${sms_pkg}" = "null" ]; then
+    echo "  Default SMS App: [OK] System default"
+  elif _pkg_allowed "${sms_pkg}" "${sms_allow}"; then
+    echo "  Default SMS App: [OK] Allowlisted (${sms_pkg})"
+  else
+    echo "  Default SMS App: [WARNING] Non-allowlisted default SMS app: ${sms_pkg}"
+  fi
+
+  # --- 11. Default assistant (sees screen/voice) ---
+  local asst_pkg
+  asst_pkg=$(adb -s "${device}" shell settings get secure assistant 2>/dev/null | tr -d '\r\n' || true)
+  [ -z "${asst_pkg}" ] || [ "${asst_pkg}" = "null" ] && \
+    asst_pkg=$(adb -s "${device}" shell settings get secure voice_interaction_service 2>/dev/null | tr -d '\r\n' || true)
+  if [ -z "${asst_pkg}" ] || [ "${asst_pkg}" = "null" ]; then
+    echo "  Default Assistant: [OK] System default"
+  elif _pkg_allowed "${asst_pkg}" "${assistant_allow}"; then
+    echo "  Default Assistant: [OK] Allowlisted (${asst_pkg})"
+  else
+    echo "  Default Assistant: [WARNING] Non-allowlisted assistant: ${asst_pkg}"
+  fi
+
+  # --- 12. Lock-after-timeout (delay screen-off -> credential required) ---
+  local lat lat_sec
+  lat=$(adb -s "${device}" shell settings get secure lock_screen_lock_after_timeout 2>/dev/null | tr -d '\r\n' || true)
+  if [ -z "${lat}" ] || [ "${lat}" = "null" ]; then
+    echo "  Lock-After-Timeout: [NOTICE] unset (system default delay before credential is required)"
+  elif printf '%s' "${lat}" | grep -qE '^[0-9]+$'; then
+    lat_sec=$((lat / 1000))
+    if [ "${lat}" -gt 30000 ]; then
+      echo "  Lock-After-Timeout: [WARNING] ${lat_sec}s (${lat}ms) — credential reachable for >30s after screen-off"
+    else
+      echo "  Lock-After-Timeout: [OK] ${lat_sec}s (${lat}ms) after screen-off"
+    fi
+  else
+    echo "  Lock-After-Timeout: [NOTICE] unparseable value '${lat}'"
+  fi
+
+  # --- 13. Play Protect / package verification ---
+  local pve uae
+  pve=$(adb -s "${device}" shell settings get global package_verifier_enable 2>/dev/null | tr -d '\r\n' || true)
+  uae=$(adb -s "${device}" shell settings get global upload_apk_enable 2>/dev/null | tr -d '\r\n' || true)
+  case "${pve}" in
+    0) echo "  Package Verification: [WARNING] DISABLED (package_verifier_enable=0) — apps not verified on install" ;;
+    1|""|"null") echo "  Package Verification: [OK] Enabled (default)" ;;
+    *) echo "  Package Verification: [NOTICE] state '${pve}'" ;;
+  esac
+  case "${uae}" in
+    0) echo "  Play Protect Upload: [NOTICE] upload_apk_enable=0 — unknown apps not shared with Google for scanning" ;;
+    1|""|"null") echo "  Play Protect Upload: [OK] Enabled (default)" ;;
+    *) echo "  Play Protect Upload: [NOTICE] state '${uae}'" ;;
+  esac
+
+  # --- 14. Storage encryption (FBE) ---
+  local ctype cstate
+  ctype=$(adb -s "${device}" shell getprop ro.crypto.type 2>/dev/null | tr -d '\r\n' || true)
+  cstate=$(adb -s "${device}" shell getprop ro.crypto.state 2>/dev/null | tr -d '\r\n' || true)
+  case "${cstate}" in
+    encrypted) echo "  Storage Encryption: [OK] Encrypted (ro.crypto.type=${ctype:-unknown})" ;;
+    unencrypted) echo "  Storage Encryption: [CRITICAL WARNING] Storage NOT encrypted" ;;
+    *) echo "  Storage Encryption: [NOTICE] state '${cstate}' (type='${ctype}')" ;;
+  esac
 
   echo "--------------------------------------------------------"
   return 0

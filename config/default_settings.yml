@@ -32,3 +32,7 @@ audit_security_patch_max_age_days: 120            # Warn if ro.build.version.sec
 audit_strict_lock_quality: 0                      # 1 = treat Pattern / biometric-weak lock as insufficient
 audit_accessibility_allowlist: "com.google.android.marvin.talkback"  # Space-sep packages considered trusted accessibility services
 audit_device_admin_allowlist: ""                  # Space-sep expected Device Admin / Owner packages (e.g. MDM); empty warns on any
+audit_notification_listener_allowlist: ""         # Space-sep trusted notification-listener packages (else warn on any active)
+audit_autofill_allowlist: ""                      # Space-sep trusted autofill-service packages
+audit_sms_default_allowlist: ""                   # Space-sep expected default-SMS-app packages (null = system default)
+audit_assistant_allowlist: ""                     # Space-sep expected default-assistant packages (null = system default)
