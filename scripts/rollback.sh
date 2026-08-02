@@ -40,6 +40,50 @@ fi
 
 echo "[INFO] Starting Automatic Settings Rollback Procedure..."
 
+verify_backup_integrity() {
+  local target_dir="$1"
+  local checksum_file="${target_dir}/checksums.sha256"
+
+  if [ ! -f "${checksum_file}" ]; then
+    echo "[WARN] No SHA-256 checksum file found at ${checksum_file}. Proceeding without hash verification."
+    return 0
+  fi
+
+  echo "[INFO] Verifying SHA-256 checksums for backup integrity..."
+  local valid=true
+
+  if command -v sha256sum >/dev/null 2>&1; then
+    (cd "${target_dir}" && sha256sum -c checksums.sha256 >/dev/null 2>&1) || valid=false
+  elif command -v shasum >/dev/null 2>&1; then
+    (cd "${target_dir}" && shasum -a 256 -c checksums.sha256 >/dev/null 2>&1) || valid=false
+  else
+    python3 -c '
+import os, hashlib, sys
+bdir = "'"${target_dir}"'"
+cfile = os.path.join(bdir, "checksums.sha256")
+for line in open(cfile, encoding="utf-8"):
+    parts = line.strip().split()
+    if len(parts) == 2:
+        expected, fname = parts[0], parts[1]
+        fpath = os.path.join(bdir, fname)
+        if os.path.exists(fpath):
+            actual = hashlib.sha256(open(fpath, "rb").read()).hexdigest()
+            if actual != expected:
+                sys.exit(1)
+sys.exit(0)
+' || valid=false
+  fi
+
+  if [ "${valid}" = false ]; then
+    echo "[ERROR] Backup integrity verification FAILED at ${target_dir}!"
+    echo "[ERROR] Backup files appear to be modified or corrupted. Aborting rollback."
+    return 1
+  fi
+
+  echo "[PASS] SHA-256 backup integrity verified successfully."
+  return 0
+}
+
 restore_managed_keys() {
   local device="$1"
   local target_dir="$2"
@@ -48,6 +92,8 @@ restore_managed_keys() {
   if [ -f "${managed_file}" ]; then
     echo "[INFO] Restoring managed settings baseline from ${managed_file} for device [${device}]..."
     local restored=0
+    local verified=0
+    local failed=0
 
     while IFS= read -r line || [ -n "${line}" ]; do
       line=$(echo "${line}" | tr -d '\r\n')
@@ -66,12 +112,32 @@ restore_managed_keys() {
         adb -s "${device}" shell settings put "${ns}" "${key}" "${val}" >/dev/null 2>&1 || true
       fi
       ((restored++)) || true
+
+      # Post-write rollback verification
+      local current_val
+      current_val=$(adb -s "${device}" shell settings get "${ns}" "${key}" 2>/dev/null | tr -d '\r\n')
+      if [ "${val}" = "null" ] || [ -z "${val}" ]; then
+        if [ "${current_val}" = "null" ] || [ -z "${current_val}" ]; then
+          ((verified++)) || true
+        else
+          ((failed++)) || true
+        fi
+      else
+        if [ "${current_val}" = "${val}" ]; then
+          ((verified++)) || true
+        else
+          echo "[WARN] Setting '${key}' rollback verification mismatch (expected '${val}', got '${current_val}')"
+          ((failed++)) || true
+        fi
+      fi
     done < "${managed_file}"
 
-    echo "[PASS] Restored ${restored} managed setting(s) for device [${device}]."
+    echo "[PASS] Restored and verified ${verified}/${restored} managed setting(s) for device [${device}]."
   else
     echo "[WARN] Managed keys baseline missing: ${managed_file}. Using targeted fallback from namespace dumps."
     local restored=0
+    local verified=0
+
     for item in "${MANAGED_KEYS[@]}"; do
       local ns="${item%% *}"
       local key="${item#* }"
@@ -88,10 +154,16 @@ restore_managed_keys() {
             adb -s "${device}" shell settings put "${ns}" "${key}" "${val}" >/dev/null 2>&1 || true
           fi
           ((restored++)) || true
+
+          local current_val
+          current_val=$(adb -s "${device}" shell settings get "${ns}" "${key}" 2>/dev/null | tr -d '\r\n')
+          if [ "${current_val}" = "${val}" ]; then
+            ((verified++)) || true
+          fi
         fi
       fi
     done
-    echo "[PASS] Restored ${restored} managed setting(s) from legacy dumps for device [${device}]."
+    echo "[PASS] Restored and verified ${verified}/${restored} managed setting(s) from legacy dumps for device [${device}]."
   fi
 }
 
@@ -116,6 +188,10 @@ for DEVICE in "${DEVICES[@]}"; do
       echo "[ERROR] Aborting rollback on device [${DEVICE}] to prevent cross-device setting corruption."
       continue
     fi
+  fi
+
+  if ! verify_backup_integrity "${TARGET_BACKUP}"; then
+    continue
   fi
 
   echo "=========================================================="

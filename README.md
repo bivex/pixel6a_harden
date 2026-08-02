@@ -8,9 +8,10 @@ A Staff-Grade, production-ready DevSecOps automation and security hardening fram
 
 * **Single Source of Truth Configuration**: `config/default_settings.yml` is parsed dynamically by both Ansible playbooks and POSIX shell scripts (`scripts/parse_config.py`).
 * **Shell Injection Safety**: Environment variable generation uses Python's `shlex.quote()` to ensure safe evaluation (`eval "$(...)`) regardless of YAML values.
-* **Active Setting Verification**: Every setting applied via `settings put` is verified immediately via `settings get` to prevent false positive reports.
-* **Idempotency**: All operations check existing device state before writing. Compliant settings are reported as `[SKIP]` without redundant mutations.
-* **Automated Surgical Backup & Rollback**: Automatically saves managed setting baselines (`managed_keys.txt` driven by shared `scripts/managed_keys.sh`) and full forensic dumps to `backups/` (excluded from git via `.gitignore`). Targeted rollback (`make rollback`) validates device affinity (`metadata.ini`) to prevent cross-device corruption.
+* **Active Post-Write & Rollback Verification**: Every setting applied via `settings put` (both setup/harden and rollback) is verified immediately via `settings get` to guarantee write execution.
+* **Pre-Flight Key Support & Unsupported Key Handling**: Checks if keys exist on the target ROM/framework before writing, preventing false positive `[PASS]` reports on custom or vendor ROMs.
+* **Hardened & Integrity-Protected Backups**: Automatically restricts backup file permissions (`chmod 700/600`), saves managed setting baselines (`managed_keys.txt`), generates `checksums.sha256`, and enforces SHA-256 integrity verification before `make rollback` to prevent tampered or corrupted rollbacks.
+* **Hardware & Runtime Attestation Inspection**: `make info` and pre-flight checks inspect SELinux enforcement (`getenforce`), Verified Boot state (`ro.boot.verifiedbootstate`), Bootloader lock state (`ro.boot.flash.locked`), Build & Debug profile (`ro.debuggable`), and Root / `su` binary presence.
 * **Dedicated Audit Mode (`make audit`)**: Inspects device compliance against the security baseline without making any state changes.
 * **SDK_INT & Capability Awareness**: Detects target Android API levels (`ro.build.version.sdk`) and checks key support before execution.
 * **Lock Screen Prerequisite Auditing**: Checks for configured lock screen PINs/patterns and warns if lock screen policies are inactive.

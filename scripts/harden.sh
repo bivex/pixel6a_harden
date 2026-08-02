@@ -106,6 +106,12 @@ apply_or_audit_setting() {
   local current_val
   current_val=$(adb -s "${device}" shell settings get "${type}" "${key}" 2>/dev/null | tr -d '\r\n')
 
+  if [ "${current_val}" = "setting do not exist" ] || [ "${current_val}" = "Invalid arguments" ]; then
+    echo "[UNSUPPORTED] ${step_desc} - Key '${key}' is not supported by target Android framework/ROM"
+    ((UNSUPPORTED_COUNT++)) || true
+    return 0
+  fi
+
   if [ "${AUDIT_ONLY}" = "1" ]; then
     if [ "${current_val}" = "${target_val}" ]; then
       echo "[COMPLIANT] ${step_desc} - Matches target (${key} = ${target_val})"
@@ -154,9 +160,26 @@ for DEVICE in "${DEVICES[@]}"; do
   SDK_INT=$(adb -s "${DEVICE}" shell getprop ro.build.version.sdk 2>/dev/null || echo "0")
   LOCK_TYPE=$(adb -s "${DEVICE}" shell settings get secure lockscreen.password_type 2>/dev/null || echo "0")
 
-  echo "[INFO] Device Parameters: ${BRAND} ${MODEL} (Android ${ANDROID_VER}, SDK_INT API Level ${SDK_INT})"
+  SELINUX=$(adb -s "${DEVICE}" shell getenforce 2>/dev/null | tr -d '\r\n' || echo "Unknown")
+  VERIFIED_BOOT=$(adb -s "${DEVICE}" shell getprop ro.boot.verifiedbootstate 2>/dev/null | tr -d '\r\n' || echo "Unknown")
+  BOOTLOADER_LOCKED=$(adb -s "${DEVICE}" shell getprop ro.boot.flash.locked 2>/dev/null | tr -d '\r\n' || echo "Unknown")
+  DEBUGGABLE=$(adb -s "${DEVICE}" shell getprop ro.debuggable 2>/dev/null | tr -d '\r\n' || echo "0")
+  SU_BINARY=$(adb -s "${DEVICE}" shell "which su || ls /system/bin/su /system/xbin/su" 2>/dev/null | tr -d '\r\n' || echo "")
 
-  if [ "${LOCK_TYPE}" = "0" ] || [ "${LOCK_TYPE}" = "null" ]; then
+  echo "[INFO] Device Parameters: ${BRAND} ${MODEL} (Android ${ANDROID_VER}, SDK_INT API Level ${SDK_INT})"
+  echo "[INFO] Security Baseline: SELinux=${SELINUX}, VerifiedBoot=${VERIFIED_BOOT}, BootloaderLocked=${BOOTLOADER_LOCKED}, Debuggable=${DEBUGGABLE}"
+
+  if [ "${SELINUX}" != "Enforcing" ]; then
+    echo "[SECURITY WARNING] Device [${DEVICE}] SELinux state is '${SELINUX}' (Expected: Enforcing)!"
+    echo "[SECURITY WARNING] Non-enforcing kernels compromise Android security controls."
+  fi
+
+  if [ -n "${SU_BINARY}" ] && [[ "${SU_BINARY}" != *"no su"* ]]; then
+    echo "[SECURITY WARNING] Device [${DEVICE}] ROOT / SU binary detected at: ${SU_BINARY}"
+    echo "[SECURITY WARNING] Root access allows processes to bypass framework settings policies!"
+  fi
+
+  if [ "${LOCK_TYPE}" = "0" ] || [ "${LOCK_TYPE}" = "null" ] || [ -z "${LOCK_TYPE}" ]; then
     echo "--------------------------------------------------------"
     echo "[CRITICAL WARNING] Device [${DEVICE}] has NO LOCK SCREEN PIN/Pattern!"
     echo "[CRITICAL WARNING] Hardening lock screen policies (e.g. instant power lock,"

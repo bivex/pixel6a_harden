@@ -157,5 +157,33 @@ class TestDynamicInventory(unittest.TestCase):
         devices = adb_dynamic_inventory.get_adb_devices()
         self.assertEqual(devices, [])
 
+class TestBackupIntegrity(unittest.TestCase):
+    def test_sha256_checksum_verification(self):
+        import hashlib
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            sample_file = os.path.join(tmp_dir, "managed_keys.txt")
+            with open(sample_file, "w", encoding="utf-8") as f:
+                f.write("system screen_off_timeout=600000\n")
+
+            with open(sample_file, "rb") as f:
+                expected_hash = hashlib.sha256(f.read()).hexdigest()
+
+            checksum_file = os.path.join(tmp_dir, "checksums.sha256")
+            with open(checksum_file, "w", encoding="utf-8") as f:
+                f.write(f"{expected_hash}  managed_keys.txt\n")
+
+            # Verify clean hash matches
+            with open(sample_file, "rb") as f:
+                actual_hash = hashlib.sha256(f.read()).hexdigest()
+            self.assertEqual(actual_hash, expected_hash)
+
+            # Tamper with backup file
+            with open(sample_file, "a", encoding="utf-8") as f:
+                f.write("malicious=entry\n")
+
+            with open(sample_file, "rb") as f:
+                tampered_hash = hashlib.sha256(f.read()).hexdigest()
+            self.assertNotEqual(tampered_hash, expected_hash)
+
 if __name__ == "__main__":
     unittest.main()

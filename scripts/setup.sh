@@ -45,6 +45,11 @@ apply_idempotent_setting() {
   local current_val
   current_val=$(adb -s "${device}" shell settings get "${type}" "${key}" 2>/dev/null | tr -d '\r\n')
 
+  if [ "${current_val}" = "setting do not exist" ] || [ "${current_val}" = "Invalid arguments" ]; then
+    echo "[UNSUPPORTED] ${step_desc} - Key '${key}' is not supported by target Android framework/ROM"
+    return 0
+  fi
+
   if [ "${current_val}" = "${target_val}" ]; then
     echo "[SKIP] ${step_desc} - Already compliant (${key} = ${target_val})"
     return 0

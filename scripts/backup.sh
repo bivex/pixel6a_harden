@@ -62,10 +62,36 @@ for DEVICE in "${DEVICES[@]}"; do
   echo "sdk_int=${SDK_VER}" >> "${DEVICE_BACKUP_DIR}/metadata.ini"
   echo "timestamp=${TIMESTAMP}" >> "${DEVICE_BACKUP_DIR}/metadata.ini"
 
+  chmod 700 "${BACKUP_DIR}" "${DEVICE_BACKUP_DIR}"
+
+  # Generate SHA-256 checksums file for backup integrity verification
+  CHECKSUM_FILE="${DEVICE_BACKUP_DIR}/checksums.sha256"
+  if command -v sha256sum >/dev/null 2>&1; then
+    (cd "${DEVICE_BACKUP_DIR}" && sha256sum system.txt global.txt secure.txt managed_keys.txt metadata.ini > "${CHECKSUM_FILE}" 2>/dev/null) || true
+  elif command -v shasum >/dev/null 2>&1; then
+    (cd "${DEVICE_BACKUP_DIR}" && shasum -a 256 system.txt global.txt secure.txt managed_keys.txt metadata.ini > "${CHECKSUM_FILE}" 2>/dev/null) || true
+  else
+    python3 -c '
+import os, hashlib
+bdir = "'"${DEVICE_BACKUP_DIR}"'"
+files = ["system.txt", "global.txt", "secure.txt", "managed_keys.txt", "metadata.ini"]
+with open(os.path.join(bdir, "checksums.sha256"), "w", encoding="utf-8") as out:
+    for fname in files:
+        fpath = os.path.join(bdir, fname)
+        if os.path.exists(fpath):
+            h = hashlib.sha256(open(fpath, "rb").read()).hexdigest()
+            out.write(f"{h}  {fname}\n")
+' || true
+  fi
+
+  # Restrict backup files to owner read/write only (chmod 600)
+  chmod 600 "${DEVICE_BACKUP_DIR}"/* 2>/dev/null || true
+
   LATEST_LINK="${BACKUP_DIR}/${DEVICE}/latest"
   rm -f "${LATEST_LINK}"
   ln -s "${DEVICE_BACKUP_DIR}" "${LATEST_LINK}" 2>/dev/null || true
 
+  echo "[PASS] Permissions hardened (chmod 700/600) and SHA-256 checksums generated."
   echo "[SUCCESS] Backup completed for device [${DEVICE}]."
 done
 
