@@ -45,6 +45,9 @@ for DEVICE in "${DEVICES[@]}"; do
   SDK_INT=$(adb -s "${DEVICE}" shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r\n' || echo "0")
   BATTERY=$(adb -s "${DEVICE}" shell dumpsys battery 2>/dev/null | awk '$1=="level:"{print $2}' | tr -d '\r\n' || echo "Unknown")
   LOCK_TYPE=$(adb -s "${DEVICE}" shell settings get secure lockscreen.password_type 2>/dev/null | tr -d '\r\n' || echo "0")
+  # Modern Android (11+) stopped populating lockscreen.password_type; use the
+  # authoritative LockSettingsService CredentialType as the primary signal.
+  LOCK_CREDTYPE=$(adb -s "${DEVICE}" shell dumpsys lock_settings 2>/dev/null | tr -d '\r' | grep -E 'CredentialType:' | head -1 | awk '{print $2}' || true)
 
   # Hardware Attestation & Security Parameters
   SELINUX=$(adb -s "${DEVICE}" shell getenforce 2>/dev/null | tr -d '\r\n' || echo "Unknown")
@@ -89,7 +92,9 @@ for DEVICE in "${DEVICES[@]}"; do
     echo "Root Status: [OK] No root / su binary detected"
   fi
 
-  if [ "${LOCK_TYPE}" = "0" ] || [ "${LOCK_TYPE}" = "null" ] || [ -z "${LOCK_TYPE}" ]; then
+  if [ -n "${LOCK_CREDTYPE}" ] && [ "${LOCK_CREDTYPE}" != "None" ]; then
+    echo "Lock Screen PIN Status: [OK] Configured (CredentialType: ${LOCK_CREDTYPE})"
+  elif [ "${LOCK_TYPE}" = "0" ] || [ "${LOCK_TYPE}" = "null" ] || [ -z "${LOCK_TYPE}" ]; then
     echo "Lock Screen PIN Status: [WARNING] NO LOCK PIN/PATTERN DETECTED!"
   else
     echo "Lock Screen PIN Status: [OK] Configured (Type Code: ${LOCK_TYPE})"

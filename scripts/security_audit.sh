@@ -92,43 +92,84 @@ run_security_audit() {
   echo "  Unknown Sources: [NOTICE] Android 8+ (API 26+) uses per-app unknown-source prompts; setting is advisory"
 
   # --- 2. Lock screen credential quality ---
-  local lock_type salt label
+  # Modern Android (11+) no longer populates the legacy Settings.Secure
+  # lockscreen.password_type key. Prefer dumpsys lock_settings CredentialType
+  # (authoritative), then fall back to the legacy numeric code (older ROMs),
+  # then to cmd lock_settings get-disabled.
+  local ls_dump cred_type lock_type salt label gd lock_enrolled
+  ls_dump=$(adb -s "${device}" shell dumpsys lock_settings 2>/dev/null | tr -d '\r' || true)
+  cred_type=$(printf '%s\n%s\n' "${ls_dump}" | grep -E 'CredentialType:' | head -1 | awk '{print $2}' || true)
   lock_type=$(adb -s "${device}" shell settings get secure lockscreen.password_type 2>/dev/null | tr -d '\r\n' || true)
   salt=$(adb -s "${device}" shell settings get secure lockscreen.password_salt 2>/dev/null | tr -d '\r\n' || true)
   label=$(password_quality_label "${lock_type}")
-  case "${lock_type}" in
-    0|""|"null"|"None")
-      echo "  Lock Quality: [CRITICAL WARNING] NO lock screen credential (password_type='${lock_type}')"
-      ;;
-    32768)
-      echo "  Lock Quality: [WARNING] Weak biometric only (BIOMETRIC_WEAK) — pair with a PIN/password"
-      ;;
-    65536)
-      if [ "${strict_lock}" = "1" ]; then
-        echo "  Lock Quality: [WARNING] Pattern only (PATTERN) — strict policy prefers PIN/password"
-      else
-        echo "  Lock Quality: [OK] Pattern configured (PATTERN)"
-      fi
-      ;;
-    131072|196608)
-      echo "  Lock Quality: [OK] PIN configured (${label}) — NOTE: PIN length is NOT verifiable via ADB"
-      ;;
-    262144|327680|393216|524288)
-      echo "  Lock Quality: [OK] Strong credential configured (${label})"
-      ;;
-    *)
-      echo "  Lock Quality: [NOTICE] Unrecognized password_type='${lock_type}' (${label})"
-      ;;
-  esac
-  # Corroborate salt only when a real credential type is reported (not a "no lock" sentinel).
-  case "${lock_type}" in
-    0|""|"null"|"None") : ;;
-    *)
-      if [ -z "${salt}" ] || [ "${salt}" = "0" ] || [ "${salt}" = "null" ] || [ "${salt}" = "None" ]; then
-        echo "  Lock Quality: [WARNING] password_type set but salt empty — credential may not be enrolled"
-      fi
-      ;;
-  esac
+  lock_enrolled=0
+
+  if [ -n "${cred_type}" ] && [ "${cred_type}" != "None" ]; then
+    # Authoritative modern source resolved the credential type.
+    lock_enrolled=1
+    case "${cred_type}" in
+      PIN)
+        echo "  Lock Quality: [OK] PIN configured — NOTE: PIN length is NOT verifiable via ADB"
+        ;;
+      Pattern)
+        if [ "${strict_lock}" = "1" ]; then
+          echo "  Lock Quality: [WARNING] Pattern only — strict policy prefers PIN/password"
+        else
+          echo "  Lock Quality: [OK] Pattern configured"
+        fi
+        ;;
+      Password)
+        echo "  Lock Quality: [OK] Strong credential configured (Password)"
+        ;;
+      *)
+        echo "  Lock Quality: [OK] Credential configured (CredentialType=${cred_type})"
+        ;;
+    esac
+  else
+    # Fall back to the legacy numeric type, or declare no lock.
+    case "${lock_type}" in
+      0|""|"null"|"None")
+        gd=$(adb -s "${device}" shell cmd lock_settings get-disabled 2>/dev/null | tr -d '\r\n' || true)
+        if [ "${gd}" = "true" ]; then
+          echo "  Lock Quality: [CRITICAL WARNING] Lock screen set to None (no credential)"
+        else
+          echo "  Lock Quality: [CRITICAL WARNING] NO lock screen credential detected"
+        fi
+        ;;
+      32768)
+        lock_enrolled=1
+        echo "  Lock Quality: [WARNING] Weak biometric only (BIOMETRIC_WEAK) — pair with a PIN/password"
+        ;;
+      65536)
+        lock_enrolled=1
+        if [ "${strict_lock}" = "1" ]; then
+          echo "  Lock Quality: [WARNING] Pattern only (PATTERN) — strict policy prefers PIN/password"
+        else
+          echo "  Lock Quality: [OK] Pattern configured (PATTERN)"
+        fi
+        ;;
+      131072|196608)
+        lock_enrolled=1
+        echo "  Lock Quality: [OK] PIN configured (${label}) — NOTE: PIN length is NOT verifiable via ADB"
+        ;;
+      262144|327680|393216|524288)
+        lock_enrolled=1
+        echo "  Lock Quality: [OK] Strong credential configured (${label})"
+        ;;
+      *)
+        echo "  Lock Quality: [NOTICE] Unrecognized password_type='${lock_type}' (${label})"
+        ;;
+    esac
+    # Salt corroboration only when a real legacy credential type is reported.
+    case "${lock_type}" in
+      0|""|"null"|"None") : ;;
+      *)
+        if [ -z "${salt}" ] || [ "${salt}" = "0" ] || [ "${salt}" = "null" ] || [ "${salt}" = "None" ]; then
+          echo "  Lock Quality: [WARNING] password_type set but salt empty — credential may not be enrolled"
+        fi
+        ;;
+    esac
+  fi
 
   # --- 3. Accessibility services (prime malware abuse vector) ---
   local acc_services entry pkg remaining total_acc unsafe_acc
@@ -220,15 +261,10 @@ run_security_audit() {
   lock_disabled=$(adb -s "${device}" shell settings get secure lockscreen.disabled 2>/dev/null | tr -d '\r\n' || true)
   if [ "${lock_disabled}" = "1" ]; then
     echo "  Boot-Time Lock: [WARNING] lockscreen.disabled=1 — credential may be bypassed at boot"
+  elif [ "${lock_enrolled}" = "1" ]; then
+    echo "  Boot-Time Lock: [OK] Credential required at boot (Direct Boot); tied to lock-screen enrollment"
   else
-    case "${lock_type}" in
-      0|""|"null"|"None")
-        echo "  Boot-Time Lock: [WARNING] No credential enrolled — device boots without unlock (Direct Boot unprotected)"
-        ;;
-      *)
-        echo "  Boot-Time Lock: [OK] Credential required at boot (Direct Boot); tied to lock-screen enrollment"
-        ;;
-    esac
+    echo "  Boot-Time Lock: [WARNING] No credential enrolled — device boots without unlock (Direct Boot unprotected)"
   fi
 
   # --- 6. USB default mode ---
