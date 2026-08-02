@@ -181,6 +181,8 @@ class TestSecurityAudit(unittest.TestCase):
     def test_password_quality_label_mapping(self):
         self.assertEqual(self._label("0"), "NONE")
         self.assertEqual(self._label(""), "NONE")
+        self.assertEqual(self._label("null"), "NONE")
+        self.assertEqual(self._label("None"), "NONE")
         self.assertEqual(self._label("65536"), "PATTERN")
         self.assertEqual(self._label("131072"), "PIN_NUMERIC")
         self.assertEqual(self._label("196608"), "PIN_NUMERIC_COMPLEX")

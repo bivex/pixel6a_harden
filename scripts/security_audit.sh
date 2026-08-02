@@ -24,7 +24,7 @@ SECURITY_AUDIT_LOADED=1
 # PASSWORD_QUALITY_* constant) to a human-readable label. Unit-testable without a device.
 password_quality_label() {
   case "$1" in
-    0|"")      printf 'NONE';;
+    0|""|"null"|"None") printf 'NONE';;
     32768)     printf 'BIOMETRIC_WEAK';;
     65536)     printf 'PATTERN';;
     131072)    printf 'PIN_NUMERIC';;
@@ -97,8 +97,8 @@ run_security_audit() {
   salt=$(adb -s "${device}" shell settings get secure lockscreen.password_salt 2>/dev/null | tr -d '\r\n' || true)
   label=$(password_quality_label "${lock_type}")
   case "${lock_type}" in
-    0|"")
-      echo "  Lock Quality: [CRITICAL WARNING] NO lock screen credential (password_type=${lock_type})"
+    0|""|"null"|"None")
+      echo "  Lock Quality: [CRITICAL WARNING] NO lock screen credential (password_type='${lock_type}')"
       ;;
     32768)
       echo "  Lock Quality: [WARNING] Weak biometric only (BIOMETRIC_WEAK) — pair with a PIN/password"
@@ -117,14 +117,18 @@ run_security_audit() {
       echo "  Lock Quality: [OK] Strong credential configured (${label})"
       ;;
     *)
-      echo "  Lock Quality: [NOTICE] Unrecognized password_type=${lock_type} (${label})"
+      echo "  Lock Quality: [NOTICE] Unrecognized password_type='${lock_type}' (${label})"
       ;;
   esac
-  if [ "${lock_type}" != "0" ] && [ -n "${lock_type}" ]; then
-    if [ -z "${salt}" ] || [ "${salt}" = "0" ] || [ "${salt}" = "null" ]; then
-      echo "  Lock Quality: [WARNING] password_type set but salt empty — credential may not be enrolled"
-    fi
-  fi
+  # Corroborate salt only when a real credential type is reported (not a "no lock" sentinel).
+  case "${lock_type}" in
+    0|""|"null"|"None") : ;;
+    *)
+      if [ -z "${salt}" ] || [ "${salt}" = "0" ] || [ "${salt}" = "null" ] || [ "${salt}" = "None" ]; then
+        echo "  Lock Quality: [WARNING] password_type set but salt empty — credential may not be enrolled"
+      fi
+      ;;
+  esac
 
   # --- 3. Accessibility services (prime malware abuse vector) ---
   local acc_services entry pkg remaining total_acc unsafe_acc
@@ -217,7 +221,14 @@ run_security_audit() {
   if [ "${lock_disabled}" = "1" ]; then
     echo "  Boot-Time Lock: [WARNING] lockscreen.disabled=1 — credential may be bypassed at boot"
   else
-    echo "  Boot-Time Lock: [OK] Credential required (Direct Boot); tied to lock-screen enrollment"
+    case "${lock_type}" in
+      0|""|"null"|"None")
+        echo "  Boot-Time Lock: [WARNING] No credential enrolled — device boots without unlock (Direct Boot unprotected)"
+        ;;
+      *)
+        echo "  Boot-Time Lock: [OK] Credential required at boot (Direct Boot); tied to lock-screen enrollment"
+        ;;
+    esac
   fi
 
   # --- 6. USB default mode ---
