@@ -30,7 +30,7 @@ for DEVICE in "${DEVICES[@]}"; do
   BRAND=$(adb -s "${DEVICE}" shell getprop ro.product.brand 2>/dev/null | tr -d '\r\n' || echo "Unknown")
   ANDROID_VER=$(adb -s "${DEVICE}" shell getprop ro.build.version.release 2>/dev/null | tr -d '\r\n' || echo "Unknown")
   SDK_INT=$(adb -s "${DEVICE}" shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r\n' || echo "0")
-  BATTERY=$(adb -s "${DEVICE}" shell dumpsys battery 2>/dev/null | grep "level:" | awk '{print $2}' | tr -d '\r\n' || echo "Unknown")
+  BATTERY=$(adb -s "${DEVICE}" shell dumpsys battery 2>/dev/null | awk '$1=="level:"{print $2}' | tr -d '\r\n' || echo "Unknown")
   LOCK_TYPE=$(adb -s "${DEVICE}" shell settings get secure lockscreen.password_type 2>/dev/null | tr -d '\r\n' || echo "0")
 
   echo "Brand & Model: ${BRAND} ${MODEL}"
