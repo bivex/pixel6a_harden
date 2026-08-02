@@ -45,10 +45,17 @@
       command: "settings put global verifier_verify_adb_installs {{ verify_adb_installs }}"
 
     - name: 12. Disable Bluetooth & NFC radios
-
       command: "svc {{ item }} disable"
       loop:
         - bluetooth
         - nfc
       ignore_errors: true
       changed_when: false
+
+    - name: 13. Disable Developer Options (Final Lockdown Step)
+      command: "settings put global development_settings_enabled {{ disable_developer_options }}"
+      when: disable_developer_options | int == 1
+
+    - name: 14. Disable USB Debugging (Final Lockdown Step - Terminates Connection)
+      command: "settings put global adb_enabled {{ disable_adb_debugging }}"
+      when: disable_adb_debugging | int == 1

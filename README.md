@@ -1,150 +1,134 @@
-# System Specification: Android Automation & Security Hardening Framework (`pixel_setup`)
+# Pixel Automation & Security Hardening Framework (`pixel_setup`)
 
-**Document Standard:** ISO/IEC/IEEE 26514:2022 Compliant Technical Documentation  
-**System Identifier:** PS-FWK-2026.1  
-**Classification:** Technical Specification & Operational Guide  
+A Staff-Grade, production-ready DevSecOps automation and security hardening framework for **Google Pixel** and **Android** devices using **Ansible** and **POSIX shell scripts**.
 
 ---
 
-## 1. Scope and Purpose
+## 🔑 Key Architectural Highlights
 
-This document specifies the architecture, configuration interfaces, and operational procedures for the `pixel_setup` automation framework. The framework provides automated initialization, state enforcement, and security hardening for Android mobile devices (specifically Google Pixel series) via Android Debug Bridge (ADB) protocols and Ansible configuration management.
-
-Primary objectives:
-* Standardize mobile device operating system parameters across single or multiple connected hardware endpoints.
-* Enforce security hardening baselines (screen lock policies, anti-tracking controls, package verification).
-* Provide dynamic device discovery without hardcoded persistent device serial numbers or credentials.
+* **Single Source of Truth Configuration**: `config/default_settings.yml` is parsed dynamically by both Ansible playbooks and POSIX shell scripts (`scripts/parse_config.py`).
+* **Active Setting Verification**: Every setting applied via `settings put` is verified immediately via `settings get` to prevent false positive reports.
+* **Idempotency**: All operations check existing device state before writing. Compliant settings are reported as `[SKIP]` without redundant mutations.
+* **Automated Backup & Rollback**: Automatically dumps system, global, and secure settings to `backups/` (excluded from git via `.gitignore`) before any mutation. Full state rollback is available via `make rollback`.
+* **Dedicated Audit Mode (`make audit`)**: Inspects device compliance against the security baseline without making any state changes.
+* **SDK_INT & Capability Awareness**: Detects target Android API levels (`ro.build.version.sdk`) and checks key support before execution.
+* **Lock Screen Prerequisite Auditing**: Checks for configured lock screen PINs/patterns and warns if lock screen policies are inactive.
+* **CI/CD & Automated Unit Testing**: Full GitHub Actions pipeline (`.github/workflows/ci.yml`) and Python unit test suite (`tests/test_config.py`).
 
 ---
 
-## 2. Architecture and Repository Structure
-
-The framework is organized into modular components adhering to standard separation of concerns:
+## 📁 Repository Structure
 
 ```text
 pixel_setup/
 ├── config/
-│   └── default_settings.yml       # Centralized configuration parameters
+│   └── default_settings.yml       # Single Source of Truth configuration file
 ├── inventory/
-│   ├── adb_dynamic_inventory.py   # Executable inventory script for dynamic ADB discovery
+│   ├── adb_dynamic_inventory.py   # Dynamic Ansible inventory script
 │   └── hosts.ini                  # Static inventory configuration template
 ├── playbooks/
-│   ├── setup.yml                  # Ansible playbook for standard device configuration
-│   └── harden.yml                 # Ansible playbook for security baseline enforcement
+│   ├── setup.yml                  # Ansible setup playbook
+│   └── harden.yml                 # Ansible security hardening playbook
 ├── scripts/
-│   ├── setup.sh                   # Standalone POSIX shell script for standard setup
-│   └── harden.sh                  # Standalone POSIX shell script for security hardening
-├── .gitignore                     # Version control exclusions file
-├── Makefile                       # Command execution entrypoints
-├── requirements.yml               # Ansible Galaxy collection dependencies
-└── README.md                      # ISO-compliant technical documentation
+│   ├── parse_config.py            # PyYAML-based configuration parser (safe --env/--json exports)
+│   ├── info.sh                    # Multi-device SDK_INT & lock status inspection script
+│   ├── setup.sh                   # POSIX setup script with active setting verification & auto-backup
+│   ├── harden.sh                  # POSIX hardening, audit & lockdown script
+│   ├── backup.sh                  # Automated setting backup script
+│   └── rollback.sh                # Automated setting rollback script
+├── tests/
+│   └── test_config.py             # Python unit test suite
+├── .github/
+│   └── workflows/
+│       └── ci.yml                 # GitHub Actions CI workflow
+├── .gitignore                     # Git exclusions (excludes local backups/)
+├── Makefile                       # Unified operational shortcuts
+├── requirements.yml               # Ansible Galaxy dependencies
+└── README.md                      # Technical documentation
 ```
 
 ---
 
-## 3. Prerequisites and System Dependencies
+## ⚠️ Important Prerequisites & Security Warnings
 
-### 3.1 Host System Requirements
+1. **Lock Screen PIN/Pattern Prerequisite**:
+   * Android system settings such as `screen_off_timeout` and `lockscreen.power_button_instantly_locks` **only take effect if a screen lock PIN, Pattern, or Password is set on the device**.
+   * ADB cannot programmatically create a screen lock PIN/Password. You **must** configure a PIN/Pattern manually in *Android Settings -> Security & Privacy*.
 
-* **Operating System:** POSIX-compliant system (macOS, Linux, BSD).
-* **Android Debug Bridge (ADB):** Platform tools version 34.0.0 or higher.
-* **Python Runtime:** Python 3.8 or higher (required for dynamic inventory execution).
-* **Ansible Core (Optional):** Version 2.15 or higher (required for Ansible playbook execution).
-
-### 3.2 Target Device Requirements
-
-* **Device State:** Powered on, connected via USB or TCP/IP ADB.
-* **Developer Options:** USB Debugging enabled (`adb_enabled = 1`).
-* **Authorization:** Host public key accepted on target endpoint.
+2. **Network ADB Security Warning (`make wifi-connect`)**:
+   * Running `adb tcpip 5555` opens an unauthenticated network ADB port on the target device.
+   * Only use network ADB on trusted, isolated Wi-Fi networks. Run `make usb` or reboot the device when finished to revert to USB-only mode.
 
 ---
 
-## 4. Configuration Specification
+## 🚀 Operational Instructions
 
-System configuration parameters are centrally defined in `config/default_settings.yml`.
-
-### 4.1 Parameter Reference
-
-| Parameter Name | Data Type | Standard Baseline | Hardened Baseline | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `screen_timeout_ms` | Integer | `600000` (10 min) | `30000` (30 sec) | Display inactivity lock timeout in milliseconds. |
-| `stay_awake_plugged` | Integer | `7` (AC/USB/Wireless) | `0` (Disabled) | Controls whether display remains illuminated while charging. |
-| `dark_mode_code` | Integer | `2` (Enabled) | `2` (Enabled) | UI night mode state setting. |
-| `animation_scale_fast` | String | `"0.5"` | `"0.5"` | Window, transition, and animator duration scale multiplier. |
-| `private_notifications_hidden` | Integer | N/A | `0` (Hidden) | Hides sensitive notification content on locked screen. |
-| `power_button_instantly_locks` | Integer | N/A | `1` (Enabled) | Forces immediate device locking upon power button engagement. |
-| `wifi_scan_always_enabled` | Integer | N/A | `0` (Disabled) | Disables background Wi-Fi location scanning. |
-| `ble_scan_always_enabled` | Integer | N/A | `0` (Disabled) | Disables background Bluetooth LE location scanning. |
-| `allow_unknown_sources` | Integer | N/A | `0` (Blocked) | Restricts package installation from non-market sources. |
-| `verify_adb_installs` | Integer | N/A | `1` (Enabled) | Enforces package verification on sideloaded applications. |
-
----
-
-## 5. Operational Procedures
-
-### 5.1 Device Inspection Procedure
-
-To audit connected target endpoints prior to task execution:
+### 1. Inspect Connected Devices & SDK Levels
 
 ```bash
 make info
 ```
 
-### 5.2 Standard Device Setup
+### 2. Audit Device Compliance Without Making Changes
 
-Executes baseline UI optimizations, display timeouts, and network interfaces.
-
-#### Option A: Standalone Execution (POSIX Shell)
 ```bash
-./scripts/setup.sh
-# or via Makefile:
+make audit
+```
+
+### 3. Create Baseline Settings Backup
+
+```bash
+make backup
+```
+
+### 4. Standard Device Setup (Idempotent + Auto-Backup)
+
+```bash
 make setup
 ```
 
-#### Option B: Ansible Automation
+### 5. Security Hardening Baseline (Idempotent + Auto-Backup)
+
 ```bash
-ansible-playbook -i inventory/adb_dynamic_inventory.py playbooks/setup.yml
-# or via Makefile:
-make setup-ansible
-```
-
-### 5.3 Security Hardening Baseline Enforcement
-
-Enforces strict access controls, lock screen policies, and privacy controls.
-
-#### Option A: Standalone Execution (POSIX Shell)
-```bash
-./scripts/harden.sh
-# or via Makefile:
 make harden
 ```
 
-#### Option B: Ansible Automation
+### 6. Restore Device Settings From Backup
+
 ```bash
-ansible-playbook -i inventory/adb_dynamic_inventory.py playbooks/harden.yml
-# or via Makefile:
-make harden-ansible
+make rollback
+```
+
+### 7. Final Device Lockdown (Disables Developer Options & ADB)
+
+```bash
+make lockdown
+```
+
+### 8. Run Unit Tests
+
+```bash
+make test
 ```
 
 ---
 
-## 6. Multi-Device and Environmental Controls
+## 🛠 Configuration Reference (`config/default_settings.yml`)
 
-### 6.1 Dynamic Discovery Mechanism
-
-The framework automatically discovers all connected and authorized ADB endpoints. No explicit hardware serial numbers are required in static configuration files.
-
-### 6.2 Explicit Endpoint Targeting
-
-To restrict execution to a single specific device among multiple connected targets, export the `ANDROID_SERIAL` environment variable:
-
-```bash
-export ANDROID_SERIAL="24231JEGR15843"
-make harden
-```
-
----
-
-## 7. Compliance and Verification
-
-All execution scripts return standard POSIX exit status codes (`0` for success, non-zero for failure). Command execution logs emit structured `[INFO]`, `[SUCCESS]`, and `[ERROR]` status indicators for integration with automated CI/CD pipelines.
+| Parameter | Standard Baseline | Hardened Baseline | Description |
+| :--- | :--- | :--- | :--- |
+| `screen_timeout_ms` | `600000` (10 min) | `30000` (30 sec) | Display inactivity timeout in milliseconds |
+| `stay_awake_plugged_hardened` | `7` (Enabled) | `0` (Disabled) | Controls whether screen stays on while charging |
+| `dark_mode_code` | `2` (Enabled) | `2` (Enabled) | Forces UI Night Mode (Dark Theme) |
+| `animation_scale_fast` | `"0.5"` | `"0.5"` | UI animation duration multiplier |
+| `private_notifications_hidden` | N/A | `0` (Hidden) | Hides sensitive notification content on lock screen |
+| `power_button_instantly_locks` | N/A | `1` (Enabled) | Forces instant lock when power button is pressed |
+| `show_password_characters` | N/A | `0` (Hidden) | Hides password characters as typed (anti-shoulder surfing) |
+| `mobile_data_always_on` | N/A | `0` (Disabled) | Disables background cellular modem when connected to Wi-Fi |
+| `trust_agents_extend_unlock` | N/A | `0` (Disabled) | Disables Smart Lock unlock extension agents |
+| `private_dns_mode` | N/A | `"hostname"` | Strict Encrypted Private DNS over TLS |
+| `private_dns_provider` | N/A | `"dns.adguard-dns.com"` | Encrypted DNS provider hostname |
+| `wifi_scan_always_enabled` | N/A | `0` (Disabled) | Blocks background Wi-Fi location scanning |
+| `ble_scan_always_enabled` | N/A | `0` (Disabled) | Blocks background Bluetooth LE location scanning |
+| `allow_unknown_sources` | N/A | `0` (Blocked) | Restricts non-market package installations |
+| `verify_adb_installs` | N/A | `1` (Enabled) | Enforces Play Protect scanning on sideloaded apps |

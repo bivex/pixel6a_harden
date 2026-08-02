@@ -1,5 +1,6 @@
 ---
 # Centralized Configuration Parameters for Pixel Setup & Security Hardening
+# SINGLE SOURCE OF TRUTH: Used by Ansible Playbooks & POSIX Shell Scripts
 
 # --- Standard Setup Parameters ---
 screen_timeout_ms: 600000          # 10 minutes timeout
@@ -19,8 +20,9 @@ mobile_data_always_on: 0            # 0 = Disable background cellular modem when
 trust_agents_extend_unlock: 0       # 0 = Disable Smart Lock trusted locations/devices bypass
 private_dns_mode: "hostname"        # "hostname" = Strict Private DNS over TLS
 private_dns_provider: "dns.adguard-dns.com" # Encrypted DNS provider hostname
-
 wifi_scan_always_enabled: 0         # 0 = Block background Wi-Fi location scanning
 ble_scan_always_enabled: 0          # 0 = Block background Bluetooth location scanning
 allow_unknown_sources: 0            # 0 = Block untrusted APK installation
 verify_adb_installs: 1              # 1 = Enforce Play Protect verification on ADB installs
+disable_adb_debugging: 0            # 1 = Disable ADB USB debugging as final step
+disable_developer_options: 0        # 1 = Disable Developer Options as final step

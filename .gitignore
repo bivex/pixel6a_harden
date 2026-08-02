@@ -1,3 +1,12 @@
+# Consolidated code archives
+pixel_setup_all_code.txt
+*.txt.bak
+
+# Local backups and reports (Contains device-specific IDs & serials)
+backups/
+reports/
+*.bak
+
 # Ansible temporary files & logs
 *.retry
 *.log
@@ -12,4 +21,3 @@ __pycache__/
 # Local custom overrides / secrets
 .env
 *.local
-/backups
