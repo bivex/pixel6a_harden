@@ -14,7 +14,7 @@ A Staff-Grade, production-ready DevSecOps automation and security hardening fram
 * **Dedicated Audit Mode (`make audit`)**: Inspects device compliance against the security baseline without making any state changes.
 * **SDK_INT & Capability Awareness**: Detects target Android API levels (`ro.build.version.sdk`) and checks key support before execution.
 * **Lock Screen Prerequisite Auditing**: Checks for configured lock screen PINs/patterns and warns if lock screen policies are inactive.
-* **Local Git Hooks & CI/CD**: Local git pre-commit hook support (`make install-hooks`), static shell check (`make lint`), GitHub Actions CI pipeline (`.github/workflows/ci.yml`), and comprehensive Python unit test suite with subprocess mocks and end-to-end bash eval injection testing (`tests/test_config.py`).
+* **Local Git Hooks & Unit Testing**: Local git pre-commit hook support (`make install-hooks`), static shell check (`make lint`), and comprehensive Python unit test suite with subprocess mocks and end-to-end bash eval injection testing (`tests/test_config.py`).
 
 ---
 
@@ -41,9 +41,6 @@ pixel_setup/
 │   └── install_hooks.sh           # Local git pre-commit hook installer
 ├── tests/
 │   └── test_config.py             # Python unit test suite with subprocess & end-to-end bash eval mocks
-├── .github/
-│   └── workflows/
-│       └── ci.yml                 # GitHub Actions CI workflow
 ├── .gitignore                     # Git exclusions (excludes local backups/)
 ├── Makefile                       # Unified operational shortcuts
 ├── requirements.yml               # Ansible Galaxy dependencies
