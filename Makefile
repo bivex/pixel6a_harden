@@ -1,4 +1,4 @@
-.PHONY: deps info setup harden lockdown audit backup rollback test wifi-connect wifi-disconnect usb
+.PHONY: deps info setup harden lockdown audit backup rollback test install-hooks lint wifi-connect wifi-disconnect usb
 
 # Install required Ansible galaxy collection
 deps:
@@ -31,6 +31,15 @@ rollback:
 # Run automated unit test suite
 test:
 	python3 tests/test_config.py
+
+# Install local git pre-commit hook
+install-hooks:
+	./scripts/install_hooks.sh
+
+# Run static shell check and tests
+lint:
+	python3 tests/test_config.py
+	@if command -v shellcheck >/dev/null 2>&1; then shellcheck scripts/*.sh; else echo "[NOTICE] shellcheck not found; skipping shell linting"; fi
 
 # Run full security hardening AND disable ADB Debugging & Developer Options
 lockdown:

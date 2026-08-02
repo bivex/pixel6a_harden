@@ -2,11 +2,12 @@
 """
 Staff-Grade Configuration Parser for pixel_setup.
 Supports standard PyYAML with robust built-in fallback parser.
-Provides safe environment generation, key lookups, and JSON exports without `eval`.
+Provides safe environment generation with shlex shell-quoting, key lookups, and JSON exports.
 """
 import sys
 import os
 import json
+import shlex
 
 def load_yaml(filepath):
     if not os.path.exists(filepath):
@@ -57,7 +58,7 @@ def main():
                     v_str = "1" if v else "0"
                 else:
                     v_str = str(v)
-                print(f'CFG_{k.upper()}="{v_str}"')
+                print(f'CFG_{k.upper()}={shlex.quote(v_str)}')
         else:
             target_key = flag
             if target_key in config:
@@ -72,7 +73,7 @@ def main():
                 v_str = "1" if v else "0"
             else:
                 v_str = str(v)
-            print(f'CFG_{k.upper()}="{v_str}"')
+            print(f'CFG_{k.upper()}={shlex.quote(v_str)}')
 
 if __name__ == "__main__":
     main()

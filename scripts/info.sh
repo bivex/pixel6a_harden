@@ -26,25 +26,30 @@ echo "=== Connected ADB Device Information (${#DEVICES[@]} device(s) found) ==="
 for DEVICE in "${DEVICES[@]}"; do
   echo ""
   echo "--- Device Serial: [${DEVICE}] ---"
-  MODEL=$(adb -s "${DEVICE}" shell getprop ro.product.model 2>/dev/null || echo "Unknown")
-  BRAND=$(adb -s "${DEVICE}" shell getprop ro.product.brand 2>/dev/null || echo "Unknown")
-  ANDROID_VER=$(adb -s "${DEVICE}" shell getprop ro.build.version.release 2>/dev/null || echo "Unknown")
-  SDK_INT=$(adb -s "${DEVICE}" shell getprop ro.build.version.sdk 2>/dev/null || echo "Unknown")
-  BATTERY=$(adb -s "${DEVICE}" shell dumpsys battery 2>/dev/null | grep "level:" | awk '{print $2}' || echo "Unknown")
-  LOCK_TYPE=$(adb -s "${DEVICE}" shell settings get secure lockscreen.password_type 2>/dev/null || echo "0")
+  MODEL=$(adb -s "${DEVICE}" shell getprop ro.product.model 2>/dev/null | tr -d '\r\n' || echo "Unknown")
+  BRAND=$(adb -s "${DEVICE}" shell getprop ro.product.brand 2>/dev/null | tr -d '\r\n' || echo "Unknown")
+  ANDROID_VER=$(adb -s "${DEVICE}" shell getprop ro.build.version.release 2>/dev/null | tr -d '\r\n' || echo "Unknown")
+  SDK_INT=$(adb -s "${DEVICE}" shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r\n' || echo "0")
+  BATTERY=$(adb -s "${DEVICE}" shell dumpsys battery 2>/dev/null | grep "level:" | awk '{print $2}' | tr -d '\r\n' || echo "Unknown")
+  LOCK_TYPE=$(adb -s "${DEVICE}" shell settings get secure lockscreen.password_type 2>/dev/null | tr -d '\r\n' || echo "0")
 
   echo "Brand & Model: ${BRAND} ${MODEL}"
   echo "Android Release: ${ANDROID_VER} (API Level / SDK_INT: ${SDK_INT})"
   echo "Battery Level: ${BATTERY}%"
-  
-  if [ "${LOCK_TYPE}" = "0" ] || [ "${LOCK_TYPE}" = "null" ]; then
+
+  if [ "${LOCK_TYPE}" = "0" ] || [ "${LOCK_TYPE}" = "null" ] || [ -z "${LOCK_TYPE}" ]; then
     echo "Lock Screen PIN Status: [WARNING] NO LOCK PIN/PATTERN DETECTED!"
   else
     echo "Lock Screen PIN Status: [OK] Configured (Type Code: ${LOCK_TYPE})"
   fi
 
-  if [ -d "${BACKUP_DIR}/${DEVICE}/latest" ]; then
-    echo "Backup Baseline: [OK] Available at backups/${DEVICE}/latest"
+  LATEST_BACKUP="${BACKUP_DIR}/${DEVICE}/latest"
+  if [ -d "${LATEST_BACKUP}" ]; then
+    if [ -f "${LATEST_BACKUP}/managed_keys.txt" ]; then
+      echo "Backup Baseline: [OK] Managed baseline available at backups/${DEVICE}/latest"
+    else
+      echo "Backup Baseline: [OK] Legacy baseline available at backups/${DEVICE}/latest"
+    fi
   else
     echo "Backup Baseline: [NOTICE] No backup found. Run 'make backup' to save baseline."
   fi
