@@ -14,6 +14,8 @@ MANAGED_KEYS=(
   "global private_dns_specifier"
   "global wifi_scan_always_enabled"
   "global ble_scan_always_enabled"
+  "global adb_wifi_enabled"
+  "global usb_mass_storage_enabled"
   "global verifier_verify_adb_installs"
   "global development_settings_enabled"
   "global adb_enabled"

@@ -212,20 +212,23 @@ for DEVICE in "${DEVICES[@]}"; do
   apply_or_audit_setting "${DEVICE}" "global" "private_dns_mode" "${CFG_PRIVATE_DNS_MODE}" "28" "Step 5a: Setting Private DNS Mode (${CFG_PRIVATE_DNS_MODE})" "${SDK_INT}"
   apply_or_audit_setting "${DEVICE}" "global" "private_dns_specifier" "${CFG_PRIVATE_DNS_PROVIDER}" "28" "Step 5b: Setting Private DNS Provider (${CFG_PRIVATE_DNS_PROVIDER})" "${SDK_INT}"
 
-  # Step 6: Location Scanning
+  # Step 6: Location Scanning & Network Surfaces
   apply_or_audit_setting "${DEVICE}" "global" "wifi_scan_always_enabled" "${CFG_WIFI_SCAN_ALWAYS_ENABLED}" "21" "Step 6a: Disabling Background Wi-Fi Location Scanning" "${SDK_INT}"
   apply_or_audit_setting "${DEVICE}" "global" "ble_scan_always_enabled" "${CFG_BLE_SCAN_ALWAYS_ENABLED}" "21" "Step 6b: Disabling Background BLE Location Scanning" "${SDK_INT}"
+  apply_or_audit_setting "${DEVICE}" "global" "adb_wifi_enabled" "0" "21" "Step 6c: Disabling Unauthenticated Wireless ADB" "${SDK_INT}"
+  apply_or_audit_setting "${DEVICE}" "global" "usb_mass_storage_enabled" "0" "21" "Step 6d: Disabling USB Mass Storage & Default Tethering" "${SDK_INT}"
 
   # Step 7: Unknown Apps & Verification
   apply_or_audit_setting "${DEVICE}" "secure" "install_non_market_apps" "${CFG_ALLOW_UNKNOWN_SOURCES}" "21" "Step 7a: Restricting Unknown App Sources" "${SDK_INT}"
   apply_or_audit_setting "${DEVICE}" "global" "verifier_verify_adb_installs" "${CFG_VERIFY_ADB_INSTALLS}" "21" "Step 7b: Enforcing Play Protect Verification on ADB Installs" "${SDK_INT}"
 
-  # Step 8: Radios
+  # Step 8: Radios & USB Default Mode
   if [ "${AUDIT_ONLY}" = "0" ]; then
-    echo "[INFO] Step 8/8: Disabling Unnecessary Radios (Bluetooth & NFC)..."
+    echo "[INFO] Step 8/8: Disabling Unnecessary Radios (Bluetooth & NFC) & Setting USB to Charge-Only..."
     adb -s "${DEVICE}" shell svc bluetooth disable >/dev/null 2>&1 || true
     adb -s "${DEVICE}" shell svc nfc disable >/dev/null 2>&1 || true
-    echo "[PASS]  - Radio disable signals sent"
+    adb -s "${DEVICE}" shell setprop persist.sys.usb.config "${CFG_USB_DEFAULT_CONFIG:-none}" >/dev/null 2>&1 || true
+    echo "[PASS]  - Radio & USB configuration signals sent"
     ((PASSED_COUNT++)) || true
   fi
 

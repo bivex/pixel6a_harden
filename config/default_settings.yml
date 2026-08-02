@@ -25,6 +25,8 @@ wifi_scan_always_enabled: 0         # 0 = Block background Wi-Fi location scanni
 ble_scan_always_enabled: 0          # 0 = Block background Bluetooth location scanning
 allow_unknown_sources: 0            # 0 = Block untrusted APK installation
 verify_adb_installs: 1              # 1 = Enforce Play Protect verification on ADB installs
+disable_wireless_adb: 1               # 1 = Block unauthenticated network ADB (adb_wifi_enabled: 0)
+usb_default_config: "none"            # "none" or "charge_only" = Block default MTP / USB tethering
 disable_adb_debugging: 0            # 1 = Disable ADB USB debugging as final step
 disable_developer_options: 0        # 1 = Disable Developer Options as final step
 

@@ -33,6 +33,8 @@ class TestConfigParser(unittest.TestCase):
         self.assertIn("screen_timeout_ms", cfg)
         self.assertIn("private_dns_provider", cfg)
         self.assertEqual(cfg["private_dns_provider"], "dns.adguard-dns.com")
+        self.assertEqual(cfg["disable_wireless_adb"], 1)
+        self.assertEqual(cfg["usb_default_config"], "none")
 
     def test_audit_config_keys_present(self):
         config_path = os.path.join(PROJECT_ROOT, "config", "default_settings.yml")
