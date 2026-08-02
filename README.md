@@ -180,6 +180,7 @@ make lockdown
 | `animation_scale_fast` | `"0.5"` | `"0.5"` | UI animation duration multiplier |
 | `private_notifications_hidden` | N/A | `0` (Hidden) | Hides sensitive notification content on lock screen |
 | `power_button_instantly_locks` | N/A | `1` (Enabled) | Forces instant lock when power button is pressed |
+| `hardened_lock_after_timeout_ms` | N/A | `5000` (5 sec) | Delay (ms) between screen-off and credential-required lock |
 | `show_password_characters` | N/A | `0` (Hidden) | Hides password characters as typed (anti-shoulder surfing) |
 | `mobile_data_always_on` | N/A | `0` (Disabled) | Disables background cellular modem when connected to Wi-Fi |
 | `trust_agents_extend_unlock` | N/A | `0` (Disabled) | Disables Smart Lock unlock extension agents |
@@ -195,7 +196,7 @@ make lockdown
 | `audit_strict_lock_quality` | N/A | `0` | `1` treats Pattern / biometric-weak lock as insufficient |
 | `audit_accessibility_allowlist` | N/A | `"com.google.android.marvin.talkback"` | Space-separated trusted Accessibility packages |
 | `audit_device_admin_allowlist` | N/A | `""` | Space-separated expected Device Admin / Owner packages |
-| `audit_notification_listener_allowlist` | N/A | `""` | Space-separated trusted notification-listener packages (empty warns on any) |
+| `audit_notification_listener_allowlist` | N/A | `"com.android.launcher3"` | Space-separated trusted notification-listener packages (empty warns on any) |
 | `audit_autofill_allowlist` | N/A | `""` | Space-separated trusted autofill-service packages |
 | `audit_sms_default_allowlist` | N/A | `""` | Space-separated expected default-SMS-app packages (null = system default) |
 | `audit_assistant_allowlist` | N/A | `""` | Space-separated expected default-assistant packages (null = system default) |

@@ -196,6 +196,7 @@ for DEVICE in "${DEVICES[@]}"; do
   apply_or_audit_setting "${DEVICE}" "system" "screen_off_timeout" "${CFG_HARDENED_SCREEN_TIMEOUT_MS}" "21" "Step 1a: Enforcing 30s Screen Timeout" "${SDK_INT}"
   apply_or_audit_setting "${DEVICE}" "global" "stay_on_while_plugged_in" "${CFG_STAY_AWAKE_PLUGGED_HARDENED}" "21" "Step 1b: Disabling Stay Awake on Charger" "${SDK_INT}"
   apply_or_audit_setting "${DEVICE}" "secure" "lockscreen.power_button_instantly_locks" "${CFG_POWER_BUTTON_INSTANTLY_LOCKS}" "21" "Step 1c: Instant Power Button Lock" "${SDK_INT}"
+  apply_or_audit_setting "${DEVICE}" "secure" "lock_screen_lock_after_timeout" "${CFG_HARDENED_LOCK_AFTER_TIMEOUT_MS}" "21" "Step 1d: Lock-After-Timeout (screen-off -> credential)" "${SDK_INT}"
 
   # Step 2: Private Notifications
   apply_or_audit_setting "${DEVICE}" "secure" "lock_screen_allow_private_notifications" "${CFG_PRIVATE_NOTIFICATIONS_HIDDEN}" "21" "Step 2/8: Hiding Sensitive Lock Screen Notifications" "${SDK_INT}"

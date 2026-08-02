@@ -19,6 +19,7 @@ MANAGED_KEYS=(
   "global adb_enabled"
   "secure ui_night_mode"
   "secure lockscreen.power_button_instantly_locks"
+  "secure lock_screen_lock_after_timeout"
   "secure lock_screen_allow_private_notifications"
   "secure trust_agents_extend_unlock"
   "secure install_non_market_apps"
