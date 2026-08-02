@@ -7,13 +7,14 @@ A Staff-Grade, production-ready DevSecOps automation and security hardening fram
 ## 🔑 Key Architectural Highlights
 
 * **Single Source of Truth Configuration**: `config/default_settings.yml` is parsed dynamically by both Ansible playbooks and POSIX shell scripts (`scripts/parse_config.py`).
+* **Shell Injection Safety**: Environment variable generation uses Python's `shlex.quote()` to ensure safe evaluation (`eval "$(...)`) regardless of YAML values.
 * **Active Setting Verification**: Every setting applied via `settings put` is verified immediately via `settings get` to prevent false positive reports.
 * **Idempotency**: All operations check existing device state before writing. Compliant settings are reported as `[SKIP]` without redundant mutations.
-* **Automated Backup & Rollback**: Automatically dumps system, global, and secure settings to `backups/` (excluded from git via `.gitignore`) before any mutation. Full state rollback is available via `make rollback`.
+* **Automated Surgical Backup & Rollback**: Automatically saves managed setting baselines (`managed_keys.txt`) and full forensic dumps to `backups/` (excluded from git via `.gitignore`). Full targeted rollback is available via `make rollback` with per-device isolation.
 * **Dedicated Audit Mode (`make audit`)**: Inspects device compliance against the security baseline without making any state changes.
 * **SDK_INT & Capability Awareness**: Detects target Android API levels (`ro.build.version.sdk`) and checks key support before execution.
 * **Lock Screen Prerequisite Auditing**: Checks for configured lock screen PINs/patterns and warns if lock screen policies are inactive.
-* **CI/CD & Automated Unit Testing**: Full GitHub Actions pipeline (`.github/workflows/ci.yml`) and Python unit test suite (`tests/test_config.py`).
+* **Local Git Hooks & Unit Testing**: Local git pre-commit hook support (`make install-hooks`), static shell check (`make lint`), and comprehensive Python unit test suite with `unittest.mock` (`tests/test_config.py`).
 
 ---
 
@@ -30,14 +31,15 @@ pixel_setup/
 │   ├── setup.yml                  # Ansible setup playbook
 │   └── harden.yml                 # Ansible security hardening playbook
 ├── scripts/
-│   ├── parse_config.py            # PyYAML-based configuration parser (safe --env/--json exports)
+│   ├── parse_config.py            # PyYAML parser with shlex shell-quoting (--env/--json exports)
 │   ├── info.sh                    # Multi-device SDK_INT & lock status inspection script
 │   ├── setup.sh                   # POSIX setup script with active setting verification & auto-backup
 │   ├── harden.sh                  # POSIX hardening, audit & lockdown script
-│   ├── backup.sh                  # Automated setting backup script
-│   └── rollback.sh                # Automated setting rollback script
+│   ├── backup.sh                  # Automated managed & forensic setting backup script
+│   ├── rollback.sh                # Targeted setting rollback script with multi-device checks
+│   └── install_hooks.sh           # Local git pre-commit hook installer
 ├── tests/
-│   └── test_config.py             # Python unit test suite
+│   └── test_config.py             # Python unit test suite with subprocess mocking
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                 # GitHub Actions CI workflow
@@ -99,16 +101,23 @@ make harden
 make rollback
 ```
 
-### 7. Final Device Lockdown (Disables Developer Options & ADB)
+### 7. Install Local Git Pre-Commit Hook
 
 ```bash
-make lockdown
+make install-hooks
 ```
 
-### 8. Run Unit Tests
+### 8. Run Unit Tests & Linting
 
 ```bash
 make test
+make lint
+```
+
+### 9. Final Device Lockdown (Disables Developer Options & ADB)
+
+```bash
+make lockdown
 ```
 
 ---
