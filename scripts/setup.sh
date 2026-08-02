@@ -93,34 +93,34 @@ for DEVICE in "${DEVICES[@]}"; do
   # Step 1: Screen Timeout
   res=$(apply_idempotent_setting "${DEVICE}" "system" "screen_off_timeout" "${CFG_SCREEN_TIMEOUT_MS}" "Step 1/5: Setting Screen Timeout (${CFG_SCREEN_TIMEOUT_MS} ms)" || echo "FAIL")
   echo "${res}"
-  if [[ "${res}" == *"[SKIP]"* ]]; then ((SKIPPED_COUNT++)); elif [[ "${res}" == *"[PASS]"* ]]; then ((PASSED_COUNT++)); else ((FAILED_COUNT++)); fi
+  if [[ "${res}" == *"[SKIP]"* ]]; then ((SKIPPED_COUNT++)) || true; elif [[ "${res}" == *"[PASS]"* ]]; then ((PASSED_COUNT++)) || true; else ((FAILED_COUNT++)) || true; fi
 
   # Step 2: Stay Awake
   res=$(apply_idempotent_setting "${DEVICE}" "global" "stay_on_while_plugged_in" "${CFG_STAY_AWAKE_PLUGGED_STANDARD}" "Step 2/5: Setting Stay Awake on Charger" || echo "FAIL")
   echo "${res}"
-  if [[ "${res}" == *"[SKIP]"* ]]; then ((SKIPPED_COUNT++)); elif [[ "${res}" == *"[PASS]"* ]]; then ((PASSED_COUNT++)); else ((FAILED_COUNT++)); fi
+  if [[ "${res}" == *"[SKIP]"* ]]; then ((SKIPPED_COUNT++)) || true; elif [[ "${res}" == *"[PASS]"* ]]; then ((PASSED_COUNT++)) || true; else ((FAILED_COUNT++)) || true; fi
 
   # Step 3: Dark Mode
   res=$(apply_idempotent_setting "${DEVICE}" "secure" "ui_night_mode" "${CFG_DARK_MODE_CODE}" "Step 3/5: Setting UI Night Mode" || echo "FAIL")
   echo "${res}"
-  if [[ "${res}" == *"[SKIP]"* ]]; then ((SKIPPED_COUNT++)); elif [[ "${res}" == *"[PASS]"* ]]; then ((PASSED_COUNT++)); else ((FAILED_COUNT++)); fi
+  if [[ "${res}" == *"[SKIP]"* ]]; then ((SKIPPED_COUNT++)) || true; elif [[ "${res}" == *"[PASS]"* ]]; then ((PASSED_COUNT++)) || true; else ((FAILED_COUNT++)) || true; fi
 
   # Step 4: Animation Scales
   echo "[INFO] Step 4/5: Configuring Animation Duration Scales (${CFG_ANIMATION_SCALE_FAST}x)..."
   for anim_key in window_animation_scale transition_animation_scale animator_duration_scale; do
     res=$(apply_idempotent_setting "${DEVICE}" "global" "${anim_key}" "${CFG_ANIMATION_SCALE_FAST}" "  - Setting ${anim_key}" || echo "FAIL")
     echo "${res}"
-    if [[ "${res}" == *"[SKIP]"* ]]; then ((SKIPPED_COUNT++)); elif [[ "${res}" == *"[PASS]"* ]]; then ((PASSED_COUNT++)); else ((FAILED_COUNT++)); fi
+    if [[ "${res}" == *"[SKIP]"* ]]; then ((SKIPPED_COUNT++)) || true; elif [[ "${res}" == *"[PASS]"* ]]; then ((PASSED_COUNT++)) || true; else ((FAILED_COUNT++)) || true; fi
   done
 
   # Step 5: Wi-Fi
   echo "[INFO] Step 5/5: Enabling Wireless Interface (Wi-Fi)..."
   if adb -s "${DEVICE}" shell svc wifi enable >/dev/null 2>&1; then
     echo "[PASS]  - Wi-Fi interface enabled"
-    ((PASSED_COUNT++))
+    ((PASSED_COUNT++)) || true
   else
     echo "[FAIL]  - Failed to enable Wi-Fi interface"
-    ((FAILED_COUNT++))
+    ((FAILED_COUNT++)) || true
   fi
 
   echo "--------------------------------------------------------"
