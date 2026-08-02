@@ -26,3 +26,9 @@ allow_unknown_sources: 0            # 0 = Block untrusted APK installation
 verify_adb_installs: 1              # 1 = Enforce Play Protect verification on ADB installs
 disable_adb_debugging: 0            # 1 = Disable ADB USB debugging as final step
 disable_developer_options: 0        # 1 = Disable Developer Options as final step
+
+# --- Deep Security Audit thresholds (advisory, surfaced by 'make info') ---
+audit_security_patch_max_age_days: 120            # Warn if ro.build.version.security_patch older than N days
+audit_strict_lock_quality: 0                      # 1 = treat Pattern / biometric-weak lock as insufficient
+audit_accessibility_allowlist: "com.google.android.marvin.talkback"  # Space-sep packages considered trusted accessibility services
+audit_device_admin_allowlist: ""                  # Space-sep expected Device Admin / Owner packages (e.g. MDM); empty warns on any

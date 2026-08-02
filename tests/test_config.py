@@ -34,6 +34,14 @@ class TestConfigParser(unittest.TestCase):
         self.assertIn("private_dns_provider", cfg)
         self.assertEqual(cfg["private_dns_provider"], "dns.adguard-dns.com")
 
+    def test_audit_config_keys_present(self):
+        config_path = os.path.join(PROJECT_ROOT, "config", "default_settings.yml")
+        cfg = parse_config.load_yaml(config_path)
+        self.assertEqual(cfg["audit_security_patch_max_age_days"], 120)
+        self.assertEqual(cfg["audit_strict_lock_quality"], 0)
+        self.assertEqual(cfg["audit_accessibility_allowlist"], "com.google.android.marvin.talkback")
+        self.assertEqual(cfg["audit_device_admin_allowlist"], "")
+
     def test_fallback_parser_with_tempfile(self):
         sample_yaml = """
 # Test YAML comment
@@ -156,6 +164,40 @@ class TestDynamicInventory(unittest.TestCase):
         mock_run.side_effect = subprocess.CalledProcessError(1, ["adb", "devices"], stderr="daemon failed to start")
         devices = adb_dynamic_inventory.get_adb_devices()
         self.assertEqual(devices, [])
+
+class TestSecurityAudit(unittest.TestCase):
+    """Tests the Deep Security Audit module's pure logic (no device required)."""
+    SECURITY_AUDIT_SH = os.path.join(SCRIPTS_DIR, "security_audit.sh")
+
+    def test_module_exists(self):
+        self.assertTrue(os.path.exists(self.SECURITY_AUDIT_SH), "security_audit.sh must exist")
+
+    def _label(self, code):
+        cmd = 'source "{sh}"; password_quality_label {code}'.format(
+            sh=self.SECURITY_AUDIT_SH, code=code)
+        proc = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, check=True)
+        return proc.stdout.strip()
+
+    def test_password_quality_label_mapping(self):
+        self.assertEqual(self._label("0"), "NONE")
+        self.assertEqual(self._label(""), "NONE")
+        self.assertEqual(self._label("65536"), "PATTERN")
+        self.assertEqual(self._label("131072"), "PIN_NUMERIC")
+        self.assertEqual(self._label("196608"), "PIN_NUMERIC_COMPLEX")
+        self.assertEqual(self._label("393216"), "PASSWORD_COMPLEX")
+        self.assertEqual(self._label("32768"), "BIOMETRIC_WEAK")
+
+    def test_password_quality_label_unknown_code(self):
+        out = self._label("999999")
+        self.assertTrue(out.startswith("UNKNOWN"), "expected UNKNOWN prefix, got: %r" % out)
+
+    def test_module_sourcing_is_safe(self):
+        # Sourcing must define only functions and the marker — no adb calls, no stdout noise.
+        cmd = 'set -e; source "{sh}"; echo "loaded=${{SECURITY_AUDIT_LOADED}}"'.format(sh=self.SECURITY_AUDIT_SH)
+        proc = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, check=True)
+        self.assertEqual(proc.stdout.strip(), "loaded=1")
+        self.assertEqual(proc.stderr.strip(), "")
+
 
 class TestBackupIntegrity(unittest.TestCase):
     def test_sha256_checksum_verification(self):

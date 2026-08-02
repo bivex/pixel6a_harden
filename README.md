@@ -15,6 +15,7 @@ A Staff-Grade, production-ready DevSecOps automation and security hardening fram
 * **Dedicated Audit Mode (`make audit`)**: Inspects device compliance against the security baseline without making any state changes.
 * **SDK_INT & Capability Awareness**: Detects target Android API levels (`ro.build.version.sdk`) and checks key support before execution.
 * **Lock Screen Prerequisite Auditing**: Checks for configured lock screen PINs/patterns and warns if lock screen policies are inactive.
+* **Deep Security Audit (`make info`)**: Advisory, read-only inspection beyond the settings baseline — lock-credential quality, per-user unknown-source installs, active Accessibility services, Device Admin / Device Owner (DPC) presence, security-patch freshness, boot-time lock, and USB default mode. Sourced from `scripts/security_audit.sh`; never alters device state.
 * **Local Git Hooks & Unit Testing**: Local git pre-commit hook support (`make install-hooks`), static shell check (`make lint`), and comprehensive Python unit test suite with subprocess mocks and end-to-end bash eval injection testing (`tests/test_config.py`).
 
 ---
@@ -67,6 +68,20 @@ pixel_setup/
 4. **Execution Paths**:
    * The **POSIX shell scripts** (`make setup`, `make harden`, `make rollback`, `make audit`) serve as the primary Staff-Grade execution engine, providing active post-write verification, pre-flight lock screen checks, SDK gating, and device affinity validation.
    * The **Ansible playbooks** (`make setup-ansible`, `make harden-ansible`) are maintained as an experimental alternative for Ansible-centric environments.
+
+5. **What ADB Cannot Enforce (Android Platform Limitations)**:
+   The Deep Security Audit surfaces these as best it can, but ADB **cannot** programmatically guarantee the following — they require manual action, a Device Owner, or are platform-restricted:
+
+   | Capability | Why ADB is insufficient |
+   | :--- | :--- |
+   | **PIN / password length & complexity** | `lockscreen.password_type` reports the credential *class* (PIN vs password), never the value or length. Verify manually in *Settings → Security*. |
+   | **Account 2FA / MFA** | Lives in the Google account, not the device settings store. |
+   | **Titan M / StrongBox / hardware keymint** | Hardware-backed key attestation is not controllable via `settings`. |
+   | **Biometric policy** (unlock limits, required class) | Managed via `BiometricManager`, not writable via ADB `settings`. |
+   | **OEM Unlocking toggle** | `OEM Unlocking` is a developer-options switch not exposed as a writable settings key on production builds. |
+   | **Enterprise / Device Policy** (most) | Requires a Device Owner (DPC / EMM); not settable on a standard user-debug session. |
+
+   These are limitations of the Android platform, not of this project.
 
 ---
 
@@ -129,6 +144,24 @@ make lockdown
 
 ---
 
+## 🔍 Deep Security Audit (`make info`)
+
+`make info` runs an **advisory, read-only** audit (in `scripts/security_audit.sh`) that inspects runtime posture beyond the settings baseline. It never changes device state and always exits `0`, so findings surface as `[OK]` / `[WARNING]` / `[CRITICAL WARNING]` / `[NOTICE]` without breaking CI.
+
+| Check | What it inspects | Verdict basis |
+| :--- | :--- | :--- |
+| **Unknown Sources** | `pm list users` → `install_non_market_apps` per user | `[WARNING]` if any user allows sideload |
+| **Lock Quality** | `lockscreen.password_type` mapped to AOSP quality class | `[CRITICAL]` if none; `[WARNING]` for biometric-weak (and pattern when strict) |
+| **Accessibility Services** | `enabled_accessibility_services` vs allowlist | `[WARNING]` for any non-allowlisted (third-party) service |
+| **Device Policy / DPC** | `dumpsys device_policy` (Device Owner, Profile Owner, active admins) | `[WARNING]` for unexpected Device Owner / non-allowlisted admin |
+| **Security Patch** | `ro.build.version.security_patch` age in days | `[WARNING]` if older than `audit_security_patch_max_age_days` |
+| **Boot-Time Lock** | `lockscreen.disabled` + lock enrollment (Direct Boot) | `[WARNING]` if lockscreen can be bypassed at boot |
+| **USB Mode** | `adb_enabled` + `persist.sys.usb.config` | `[NOTICE]` if debugging or `adb` in the default USB function |
+
+> **Why audit-only:** automatically disabling an Accessibility service or revoking a Device Admin is destructive — it can break MDM/work profiles, accessibility-dependent users, or trusted device-management apps. Those are reported for a human to act on.
+
+---
+
 ## 🛠 Configuration Reference (`config/default_settings.yml`)
 
 | Parameter | Standard Baseline | Hardened Baseline | Description |
@@ -150,3 +183,7 @@ make lockdown
 | `verify_adb_installs` | N/A | `1` (Enabled) | Enforces Play Protect scanning on sideloaded apps |
 | `disable_developer_options` | `0` | `1` (on lockdown) | Disables Developer Options menu |
 | `disable_adb_debugging` | `0` | `1` (on lockdown) | Disables ADB USB debugging interface |
+| `audit_security_patch_max_age_days` | N/A | `120` | `make info` warns if security patch older than N days |
+| `audit_strict_lock_quality` | N/A | `0` | `1` treats Pattern / biometric-weak lock as insufficient |
+| `audit_accessibility_allowlist` | N/A | `"com.google.android.marvin.talkback"` | Space-separated trusted Accessibility packages |
+| `audit_device_admin_allowlist` | N/A | `""` | Space-separated expected Device Admin / Owner packages |

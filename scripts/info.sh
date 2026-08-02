@@ -10,6 +10,19 @@ if ! command -v adb >/dev/null 2>&1; then
   exit 1
 fi
 
+# Load Single Source of Truth configuration (optional; audit module falls back to defaults).
+if [ -f "${SCRIPT_DIR}/parse_config.py" ]; then
+  eval "$("${SCRIPT_DIR}/parse_config.py" --env)"
+else
+  echo "[NOTICE] Configuration parser not found; Deep Security Audit will use built-in defaults."
+fi
+
+# Source the Deep Security Audit module (advisory, read-only).
+if [ -f "${SCRIPT_DIR}/security_audit.sh" ]; then
+  # shellcheck source=scripts/security_audit.sh
+  source "${SCRIPT_DIR}/security_audit.sh"
+fi
+
 if [ -n "${ANDROID_SERIAL}" ]; then
   DEVICES=("${ANDROID_SERIAL}")
 else
@@ -80,6 +93,11 @@ for DEVICE in "${DEVICES[@]}"; do
     echo "Lock Screen PIN Status: [WARNING] NO LOCK PIN/PATTERN DETECTED!"
   else
     echo "Lock Screen PIN Status: [OK] Configured (Type Code: ${LOCK_TYPE})"
+  fi
+
+  # Deep Security Audit (advisory) — sourced from scripts/security_audit.sh
+  if [ "${SECURITY_AUDIT_LOADED:-0}" = "1" ]; then
+    run_security_audit "${DEVICE}" "${SDK_INT}"
   fi
 
   LATEST_BACKUP="${BACKUP_DIR}/${DEVICE}/latest"
