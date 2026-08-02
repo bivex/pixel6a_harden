@@ -53,21 +53,53 @@ is_active: true
         finally:
             os.remove(tmp_name)
 
-    def test_shlex_quoting_injection_prevention(self):
-        sample_yaml = """
-private_dns_provider: 'x"; touch /tmp/pwned; echo "'
+    def test_shlex_quoting_end_to_end_bash_eval(self):
+        canary_path = os.path.join(tempfile.gettempdir(), f"pwned_canary_{os.getpid()}")
+        if os.path.exists(canary_path):
+            os.remove(canary_path)
+
+        malicious_payload = f'x"; touch {canary_path}; echo "'
+        sample_yaml = f"""
+private_dns_provider: '{malicious_payload}'
 """
         with tempfile.NamedTemporaryFile("w+", delete=False) as f:
             f.write(sample_yaml)
-            tmp_name = f.name
+            tmp_yaml_path = f.name
 
         try:
-            cfg = parse_config.load_yaml(tmp_name)
             import shlex
-            quoted = shlex.quote(str(cfg["private_dns_provider"]))
-            self.assertEqual(quoted, '\'x"; touch /tmp/pwned; echo "\'')
+            import io
+            from contextlib import redirect_stdout
+            
+            with patch("parse_config.load_yaml", return_value={"private_dns_provider": malicious_payload}):
+                buf = io.StringIO()
+                orig_argv = sys.argv
+                try:
+                    sys.argv = ["parse_config.py", "--env"]
+                    with redirect_stdout(buf):
+                        parse_config.main()
+                finally:
+                    sys.argv = orig_argv
+                env_output = buf.getvalue()
+
+            bash_cmd = f'{env_output}\necho "$CFG_PRIVATE_DNS_PROVIDER"'
+            bash_proc = subprocess.run(
+                ["bash", "-c", bash_cmd],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+
+            # 1. Assert canary file was NOT created (no command injection occurred)
+            self.assertFalse(os.path.exists(canary_path), "Security failure: Command injection payload executed!")
+
+            # 2. Assert bash evaluated variable holds literal payload
+            self.assertEqual(bash_proc.stdout.strip(), malicious_payload)
         finally:
-            os.remove(tmp_name)
+            if os.path.exists(tmp_yaml_path):
+                os.remove(tmp_yaml_path)
+            if os.path.exists(canary_path):
+                os.remove(canary_path)
 
 class TestDynamicInventory(unittest.TestCase):
     @patch("subprocess.run")

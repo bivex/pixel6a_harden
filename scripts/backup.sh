@@ -23,27 +23,13 @@ if [ ${#DEVICES[@]} -eq 0 ]; then
   exit 1
 fi
 
-MANAGED_KEYS=(
-  "system screen_off_timeout"
-  "system show_password"
-  "global stay_on_while_plugged_in"
-  "global window_animation_scale"
-  "global transition_animation_scale"
-  "global animator_duration_scale"
-  "global mobile_data_always_on"
-  "global private_dns_mode"
-  "global private_dns_specifier"
-  "global wifi_scan_always_enabled"
-  "global ble_scan_always_enabled"
-  "global verifier_verify_adb_installs"
-  "global development_settings_enabled"
-  "global adb_enabled"
-  "secure ui_night_mode"
-  "secure lockscreen.power_button_instantly_locks"
-  "secure lock_screen_allow_private_notifications"
-  "secure trust_agents_extend_unlock"
-  "secure install_non_market_apps"
-)
+if [ -f "${SCRIPT_DIR}/managed_keys.sh" ]; then
+  # shellcheck source=scripts/managed_keys.sh
+  source "${SCRIPT_DIR}/managed_keys.sh"
+else
+  echo "[ERROR] Shared managed keys file '${SCRIPT_DIR}/managed_keys.sh' not found."
+  exit 1
+fi
 
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 echo "[INFO] Starting Automated Settings Backup for ${#DEVICES[@]} device(s)..."

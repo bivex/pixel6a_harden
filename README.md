@@ -10,11 +10,11 @@ A Staff-Grade, production-ready DevSecOps automation and security hardening fram
 * **Shell Injection Safety**: Environment variable generation uses Python's `shlex.quote()` to ensure safe evaluation (`eval "$(...)`) regardless of YAML values.
 * **Active Setting Verification**: Every setting applied via `settings put` is verified immediately via `settings get` to prevent false positive reports.
 * **Idempotency**: All operations check existing device state before writing. Compliant settings are reported as `[SKIP]` without redundant mutations.
-* **Automated Surgical Backup & Rollback**: Automatically saves managed setting baselines (`managed_keys.txt`) and full forensic dumps to `backups/` (excluded from git via `.gitignore`). Full targeted rollback is available via `make rollback` with per-device isolation.
+* **Automated Surgical Backup & Rollback**: Automatically saves managed setting baselines (`managed_keys.txt` driven by shared `scripts/managed_keys.sh`) and full forensic dumps to `backups/` (excluded from git via `.gitignore`). Targeted rollback (`make rollback`) validates device affinity (`metadata.ini`) to prevent cross-device corruption.
 * **Dedicated Audit Mode (`make audit`)**: Inspects device compliance against the security baseline without making any state changes.
 * **SDK_INT & Capability Awareness**: Detects target Android API levels (`ro.build.version.sdk`) and checks key support before execution.
 * **Lock Screen Prerequisite Auditing**: Checks for configured lock screen PINs/patterns and warns if lock screen policies are inactive.
-* **Local Git Hooks & Unit Testing**: Local git pre-commit hook support (`make install-hooks`), static shell check (`make lint`), and comprehensive Python unit test suite with `unittest.mock` (`tests/test_config.py`).
+* **Local Git Hooks & CI/CD**: Local git pre-commit hook support (`make install-hooks`), static shell check (`make lint`), GitHub Actions CI pipeline (`.github/workflows/ci.yml`), and comprehensive Python unit test suite with subprocess mocks and end-to-end bash eval injection testing (`tests/test_config.py`).
 
 ---
 
@@ -28,18 +28,19 @@ pixel_setup/
 │   ├── adb_dynamic_inventory.py   # Dynamic Ansible inventory script
 │   └── hosts.ini                  # Static inventory configuration template
 ├── playbooks/
-│   ├── setup.yml                  # Ansible setup playbook
-│   └── harden.yml                 # Ansible security hardening playbook
+│   ├── setup.yml                  # Ansible setup playbook (Experimental Alternative)
+│   └── harden.yml                 # Ansible security hardening playbook (Experimental Alternative)
 ├── scripts/
 │   ├── parse_config.py            # PyYAML parser with shlex shell-quoting (--env/--json exports)
+│   ├── managed_keys.sh            # Shared Single Source of Truth managed keys array
 │   ├── info.sh                    # Multi-device SDK_INT & lock status inspection script
 │   ├── setup.sh                   # POSIX setup script with active setting verification & auto-backup
 │   ├── harden.sh                  # POSIX hardening, audit & lockdown script
 │   ├── backup.sh                  # Automated managed & forensic setting backup script
-│   ├── rollback.sh                # Targeted setting rollback script with multi-device checks
+│   ├── rollback.sh                # Targeted setting rollback script with metadata affinity checks
 │   └── install_hooks.sh           # Local git pre-commit hook installer
 ├── tests/
-│   └── test_config.py             # Python unit test suite with subprocess mocking
+│   └── test_config.py             # Python unit test suite with subprocess & end-to-end bash eval mocks
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                 # GitHub Actions CI workflow
@@ -60,6 +61,14 @@ pixel_setup/
 2. **Network ADB Security Warning (`make wifi-connect`)**:
    * Running `adb tcpip 5555` opens an unauthenticated network ADB port on the target device.
    * Only use network ADB on trusted, isolated Wi-Fi networks. Run `make usb` or reboot the device when finished to revert to USB-only mode.
+
+3. **Lockdown & ADB Rollback Unavailability Warning (`make lockdown`)**:
+   * Running `make lockdown` or configuring `disable_adb_debugging: 1` disables the ADB daemon on the target device.
+   * **ADB-based rollback (`make rollback`) requires an active ADB connection and cannot connect once ADB is disabled.** Ensure you have tested your configuration before applying final lockdown.
+
+4. **Execution Paths**:
+   * The **POSIX shell scripts** (`make setup`, `make harden`, `make rollback`, `make audit`) serve as the primary Staff-Grade execution engine, providing active post-write verification, pre-flight lock screen checks, SDK gating, and device affinity validation.
+   * The **Ansible playbooks** (`make setup-ansible`, `make harden-ansible`) are maintained as an experimental alternative for Ansible-centric environments.
 
 ---
 
@@ -141,3 +150,5 @@ make lockdown
 | `ble_scan_always_enabled` | N/A | `0` (Disabled) | Blocks background Bluetooth LE location scanning |
 | `allow_unknown_sources` | N/A | `0` (Blocked) | Restricts non-market package installations |
 | `verify_adb_installs` | N/A | `1` (Enabled) | Enforces Play Protect scanning on sideloaded apps |
+| `disable_developer_options` | `0` | `1` (on lockdown) | Disables Developer Options menu |
+| `disable_adb_debugging` | `0` | `1` (on lockdown) | Disables ADB USB debugging interface |

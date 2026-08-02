@@ -219,20 +219,37 @@ if [ "${AUDIT_ONLY}" = "1" ]; then
   exit 0
 fi
 
+SHOULD_DISABLE_ADB=0
+SHOULD_DISABLE_DEV=0
+
+if [ "${LOCKDOWN}" = "1" ] || [ "${CFG_DISABLE_ADB_DEBUGGING}" = "1" ]; then
+  SHOULD_DISABLE_ADB=1
+fi
+if [ "${LOCKDOWN}" = "1" ] || [ "${CFG_DISABLE_DEVELOPER_OPTIONS}" = "1" ]; then
+  SHOULD_DISABLE_DEV=1
+fi
+
 # Perform lockdown ONLY AFTER all devices have completed verification
-if [ "${LOCKDOWN}" = "1" ]; then
+if [ "${SHOULD_DISABLE_ADB}" = "1" ] || [ "${SHOULD_DISABLE_DEV}" = "1" ]; then
   echo ""
   echo "[INFO] Executing Final Lockdown Phase across ${#DEVICES[@]} device(s)..."
+  echo "[WARNING] NOTICE: Lockdown will disable ADB/Developer Options interfaces."
+  echo "[WARNING] NOTICE: ADB-based rollback requires an active ADB session and will be unavailable after lockdown!"
   for DEVICE in "${DEVICES[@]}"; do
-    echo "[NOTICE] Disabling Developer Options & ADB Debugging interface on device [${DEVICE}]..."
-    adb -s "${DEVICE}" shell settings put global development_settings_enabled 0 >/dev/null 2>&1 || true
-    adb -s "${DEVICE}" shell settings put global adb_enabled 0 >/dev/null 2>&1 || true
+    if [ "${SHOULD_DISABLE_DEV}" = "1" ]; then
+      echo "[NOTICE] Disabling Developer Options on device [${DEVICE}]..."
+      adb -s "${DEVICE}" shell settings put global development_settings_enabled 0 >/dev/null 2>&1 || true
+    fi
+    if [ "${SHOULD_DISABLE_ADB}" = "1" ]; then
+      echo "[NOTICE] Disabling ADB Debugging interface on device [${DEVICE}]..."
+      adb -s "${DEVICE}" shell settings put global adb_enabled 0 >/dev/null 2>&1 || true
+    fi
   done
-  echo "[NOTICE] Final lockdown completed. ADB interfaces have been terminated on all target devices."
+  echo "[NOTICE] Final lockdown completed. Target ADB interfaces have been terminated."
 else
   echo ""
   echo "[INFO] Lockdown phase skipped. Developer Options & ADB Debugging remain active for automation."
-  echo "[INFO] (To perform final lockdown, run: ./scripts/harden.sh --lockdown -y)"
+  echo "[INFO] (To perform final lockdown, set disable_adb_debugging: 1 in config or run: ./scripts/harden.sh --lockdown -y)"
 fi
 
 echo ""
