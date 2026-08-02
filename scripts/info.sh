@@ -92,7 +92,8 @@ for DEVICE in "${DEVICES[@]}"; do
     echo "Root Status: [OK] No root / su binary detected"
   fi
 
-  if [ -n "${LOCK_CREDTYPE}" ] && [ "${LOCK_CREDTYPE}" != "None" ]; then
+  LOCK_CREDLC=$(printf '%s' "${LOCK_CREDTYPE}" | tr '[:upper:]' '[:lower:]' 2>/dev/null || true)
+  if [ -n "${LOCK_CREDLC}" ] && [ "${LOCK_CREDLC}" != "none" ]; then
     echo "Lock Screen PIN Status: [OK] Configured (CredentialType: ${LOCK_CREDTYPE})"
   elif [ "${LOCK_TYPE}" = "0" ] || [ "${LOCK_TYPE}" = "null" ] || [ -z "${LOCK_TYPE}" ]; then
     echo "Lock Screen PIN Status: [WARNING] NO LOCK PIN/PATTERN DETECTED!"

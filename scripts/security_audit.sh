@@ -104,21 +104,24 @@ run_security_audit() {
   label=$(password_quality_label "${lock_type}")
   lock_enrolled=0
 
-  if [ -n "${cred_type}" ] && [ "${cred_type}" != "None" ]; then
+  # dumpsys emits CredentialType in UPPER CASE (PIN/PATTERN/PASSWORD/NONE); normalize.
+  local ct
+  ct=$(printf '%s' "${cred_type}" | tr '[:upper:]' '[:lower:]' 2>/dev/null || true)
+  if [ -n "${ct}" ] && [ "${ct}" != "none" ]; then
     # Authoritative modern source resolved the credential type.
     lock_enrolled=1
-    case "${cred_type}" in
-      PIN)
+    case "${ct}" in
+      pin)
         echo "  Lock Quality: [OK] PIN configured — NOTE: PIN length is NOT verifiable via ADB"
         ;;
-      Pattern)
+      pattern)
         if [ "${strict_lock}" = "1" ]; then
           echo "  Lock Quality: [WARNING] Pattern only — strict policy prefers PIN/password"
         else
           echo "  Lock Quality: [OK] Pattern configured"
         fi
         ;;
-      Password)
+      password)
         echo "  Lock Quality: [OK] Strong credential configured (Password)"
         ;;
       *)
